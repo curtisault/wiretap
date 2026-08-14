@@ -12,8 +12,8 @@
 | **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ✅ shipped |
 | **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | 🟨 in progress |
 | **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ✅ shipped |
-| **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | 🟨 in progress |
-| **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | ⬜ not started |
+| **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ✅ shipped |
+| **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | 🟨 in progress |
 | **v1.0** | Production profile, docs site, multi-node spike | ⬜ not started |
 
 Statuses: ⬜ not started · 🟨 in progress · ✅ shipped
@@ -100,11 +100,12 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 - [x] Wiretap panel (3a): per-pid `:receive` tracing on explicitly selected pids,
       payload capture knob per discovery B7 (off / 10KB / unlimited-dev-only)
-- [ ] Broadcast Trace (3b): seq_trace token stamping, system-tracer ownership +
-      request serialization + foreign-tracer detection (per A6 spike)
-- [ ] Process Inspector (4.2): `:sys.install` hooks, auto-remove on session end,
+- [x] Broadcast Trace (3b): seq_trace token stamping, system-tracer ownership +
+      request serialization + foreign-tracer detection (per A6 spike) —
+      *injected, not intercepted; see payloads/discovery.md deviation*
+- [x] Process Inspector (4.2): `:sys.install` hooks, auto-remove on session end,
       `$ancestors`/`$callers` chains in detail pane only (A9)
-- [ ] Drill-down IA complete: Roll Call → Timeline → Inspector/Wiretap funnel (B2)
+- [x] Drill-down IA complete: Roll Call → Timeline → Inspector/Wiretap funnel (B2)
 - [ ] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v0.4 changes
 
 ## v1.0 — Production-possible
