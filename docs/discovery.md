@@ -175,9 +175,9 @@ filters are render-time so changing a filter doesn't lose data).
 
 ### B4. Scale UX for Roll Call
 
-A real app has hundreds of topics; the silo-set case has per-record topics
-(`"silo_sets:<id>"`). A flat table dies here. **Decide:** grouping strategy —
-prefix-collapsed tree (`silo_sets:*  (214 topics, 214 subscribers)`) with expand, plus
+A real app has hundreds of topics; the motivating case has per-record topics
+(`"station:<id>"`). A flat table dies here. **Decide:** grouping strategy —
+prefix-collapsed tree (`station:*  (214 topics, 214 subscribers)`) with expand, plus
 a filter box that accepts a prefix. Wildcard/regex filtering is a v-later nicety.
 Sort by subscriber count descending as default (anomalies float to top).
 
@@ -301,9 +301,9 @@ quality bar in-repo.
   not at publish time).
 - CHANGELOG.md (Keep-a-Changelog format) from the first commit; git tags per release.
 - License: MIT (per §11.7) — decide now, it's in `mix.exs` package metadata from day 1.
-- **Open question (carried from §11.7):** SandDrive dogfoods a path dep before the
-  first hex publish? **Recommendation: yes** — publish v0.1 only after the silo-set
-  test suite has replaced its hand-rolled `Registry.keys/2` helper with
+- **Open question (carried from §11.7):** the origin project dogfoods a path dep
+  before the first hex publish? **Recommendation: yes** — publish v0.1 only after its
+  test suite has replaced the hand-rolled `Registry.keys/2` helper with
   `Wiretap.Snapshot` and lived with it for a sprint.
 
 ---
@@ -314,6 +314,9 @@ Record answers here as they land, newest first.
 
 | Date | ID | Decision |
 |---|---|---|
+| 2026-08-14 | A6 | **Spike passed** (12/12, OTP 29): seq_trace system tracer remains a per-node singleton under trace sessions — arbitration design confirmed necessary; token propagates through PubSub broadcast to all subscribers with timestamps; foreign tracer detectable; coexists with call-trace sessions. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
+| 2026-08-14 | A4 | **Spike run**: select at 10k subs ≈ 1.8ms (cost is a non-issue); 1s polling misses 54% of ~500ms subscribe/unsubscribe episodes and 93% of ~100ms ones. Default 1s, auto-tighten to 250ms while a panel is focused, honesty label required. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
+| 2026-08-14 | A1 | **Spike passed** (84/84): select-based snapshot, unsubscribe removal, and death cleanup identical across phoenix_pubsub 2.0.0–2.2.0 and all partition/`group_by` configs. Keep `~> 2.1` pin + startup shape-probe. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
 | 2026-08-14 | A2 | **Adopted the reorder**: telemetry bridge + probes ship in v0.2, tracer moves to v0.3. Tracked in [roadmap.md](roadmap.md), which supersedes architecture.md §10 |
 | 2026-08-14 | — | Name `wiretap` verified free on hex.pm and GitHub |
 | 2026-08-14 | C1, C2 | Adopt format+Styler and credo --strict (no dissent expected) |

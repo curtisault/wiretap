@@ -9,7 +9,7 @@
 
 | Release | Contents | Status |
 |---|---|---|
-| **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ⬜ not started |
+| **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ✅ shipped |
 | **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | ⬜ not started |
 | **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ⬜ not started |
 | **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ⬜ not started |
@@ -25,19 +25,20 @@ Statuses: ⬜ not started · 🟨 in progress · ✅ shipped
 Project skeleton per architecture §9, plus the spikes that gate design decisions
 (discovery §E).
 
-- [ ] `mix new wiretap --sup --module Wiretap`, git init, GitHub repo (private until v0.1)
-- [ ] Tooling baseline (discovery §C): styler, credo `--strict` + `.credo.exs`,
+- [x] `mix new wiretap --sup --module Wiretap`, git init, GitHub repo (private until v0.1)
+- [x] Tooling baseline (discovery §C): styler, credo `--strict` + `.credo.exs`,
       dialyxir (CI-cached PLT), sobelow + `.sobelow-conf`, mix_audit, ex_doc, doctor,
       excoveralls, ex_check as the single `mix check` entry point
-- [ ] CI: lint job + test matrix (OTP 27/28/29 × Elixir 1.17–1.19),
+- [x] CI: lint job + test matrix (1.17/27, 1.18/27, 1.19/28, 1.20/29),
       `--warnings-as-errors` on newest cell, `mix hex.build` dry-run,
-      `deps.unlock --check-unused`, Dependabot
-- [ ] Dev harness: `dev/harness` Phoenix app (path dep) with demo LiveViews that
+      `deps.unlock --check-unused`, harness compile+test job, Dependabot
+- [x] Dev harness: `dev/harness` Phoenix app (path dep) with demo LiveViews that
       subscribe/unsubscribe on mount/clicks + timer-driven broadcaster; compile-checked in CI
-- [ ] MIT license, CHANGELOG.md, hex package metadata in mix.exs
-- [ ] **Spike A1** — registry-shape matrix (phoenix_pubsub 2.0/2.1/2.2 × `:group_by` × partitions)
-- [ ] **Spike A4** — snapshot poll-interval miss-rate + `Registry.select` cost at ~10k entries
-- [ ] **Spike A6** — seq_trace singleton behavior under OTP trace sessions (gates v0.4 design only; may slip)
+      *(built; CI wiring lands with the CI item)*
+- [x] MIT license, CHANGELOG.md, hex package metadata in mix.exs
+- [x] **Spike A1** — registry-shape matrix (phoenix_pubsub 2.0/2.1/2.2 × `:group_by` × partitions) — passed, see [bootstrap/discovery.md](bootstrap/discovery.md)
+- [x] **Spike A4** — snapshot poll-interval miss-rate + `Registry.select` cost at ~10k entries — run, see [bootstrap/discovery.md](bootstrap/discovery.md)
+- [x] **Spike A6** — seq_trace singleton behavior under OTP trace sessions — passed, singleton confirmed, see [bootstrap/discovery.md](bootstrap/discovery.md)
 
 ## v0.1 — Headless core + Roll Call
 
@@ -52,8 +53,9 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 - [ ] Wiretap's own telemetry events (A3): session start/stop/expired, budget exhausted
 - [ ] ExUnit helpers: `Wiretap.Snapshot.topics/1` etc. as assertion primitives
 - [ ] LiveDashboard Roll Call page (frozen scope per discovery B1: read-only teaser, permanent)
-- [ ] Dogfood: SandDrive silo-set test replaces hand-rolled `Registry.keys/2` helper
-      via path dep, lives with it a sprint (discovery C9) — **gates hex publish**
+- [ ] Dogfood: the origin project's test suite replaces its hand-rolled
+      `Registry.keys/2` helper via path dep, lives with it a sprint (discovery C9) —
+      **gates hex publish**
 - [ ] Publish v0.1 to hex, flip repo public
 
 ## v0.2 — Timeline + standalone endpoint
