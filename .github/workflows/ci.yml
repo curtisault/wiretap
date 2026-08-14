@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (Elixir 1.20 / OTP 29)
+    runs-on: ubuntu-24.04
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: lint-${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: lint-${{ runner.os }}-mix-
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix deps.unlock --check-unused
+      - run: mix credo --strict
+      - run: mix sobelow --exit low
+      - run: mix hex.audit
+      - run: mix deps.audit
+      - run: mix hex.build
+
+  test:
+    name: Test (Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - otp: "27"
+            elixir: "1.17"
+          - otp: "27"
+            elixir: "1.18"
+          - otp: "28"
+            elixir: "1.19"
+          - otp: "29"
+            elixir: "1.20"
+            warnings_as_errors: true
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: test-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: test-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-mix-
+      - run: mix deps.get
+      - run: mix compile ${{ matrix.warnings_as_errors && '--warnings-as-errors' || '' }}
+      - run: mix coveralls
+
+  dialyzer:
+    name: Dialyzer (Elixir 1.20 / OTP 29)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: dialyzer-${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: dialyzer-${{ runner.os }}-mix-
+      # The PLT is the expensive part; cache it separately so a lockfile change
+      # only triggers an incremental rebuild.
+      - uses: actions/cache@v4
+        with:
+          path: priv/plts
+          key: plt-${{ runner.os }}-29-1.20-${{ hashFiles('mix.lock') }}
+          restore-keys: plt-${{ runner.os }}-29-1.20-
+      - run: mix deps.get
+      - run: mix dialyzer
+
+  harness:
+    name: Harness compile + test (Elixir 1.20 / OTP 29)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: dev/harness
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            dev/harness/deps
+            dev/harness/_build
+          key: harness-${{ runner.os }}-mix-${{ hashFiles('dev/harness/mix.lock') }}
+          restore-keys: harness-${{ runner.os }}-mix-
+      - run: mix deps.get
+      - run: mix compile --warnings-as-errors
+      - run: mix test
