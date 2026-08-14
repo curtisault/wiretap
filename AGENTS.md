@@ -130,3 +130,9 @@ stay fully usable from iex and ExUnit.
 
 - Follow the `type(scope): summary` commit-message convention when writing commit messages.
 <!-- gitbutler-agent-setup:end -->
+
+## Authorship
+
+- Never add AI attribution to version-control artifacts: no `Co-Authored-By: Claude`
+  (or similar) trailers in commit messages, and no "Generated with Claude Code"
+  footers or AI-authorship notes in pull request titles or descriptions.
