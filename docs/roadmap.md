@@ -11,8 +11,8 @@
 |---|---|---|
 | **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ✅ shipped |
 | **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | 🟨 in progress |
-| **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | 🟨 in progress |
-| **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ⬜ not started |
+| **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ✅ shipped |
+| **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | 🟨 in progress |
 | **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | ⬜ not started |
 | **v1.0** | Production profile, docs site, multi-node spike | ⬜ not started |
 
@@ -85,15 +85,16 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 ## v0.3 — Tracer (Layer 2)
 
-- [ ] `Wiretap.Tracer`: OTP 27+ trace sessions only; refuse loudly if unavailable
-- [ ] Match-spec-narrowed patterns: `Phoenix.PubSub.subscribe/3`, `unsubscribe/2`,
-      `Registry.register/3`, `unregister/2`, user-added wrapper MFAs per session
-- [ ] Receiver topology per A5 spike (per-session receiver, off-heap queue,
-      drop-oldest + visible counter)
-- [ ] recon-style budgets enforced: max events / rate / wall clock → auto-detach, `:expired` in UI
-- [ ] `left_by_death` vs deliberate unsubscribe distinction
-- [ ] Timeline upgraded in place: caller attribution, no polling gap
-- [ ] Session/budget UX (B5): pre-arm attachment preview, live countdown + event meter, presets
+- [x] `Wiretap.Tracer`: OTP 27+ trace sessions only; refuse loudly if unavailable
+- [x] Match-spec-narrowed patterns: `Phoenix.PubSub.subscribe/2,3`, `unsubscribe/2`,
+      user-added wrapper MFAs per session *(Registry pair dropped — tail-call caller
+      ambiguity; see tracer/implementation.md deviations)*
+- [x] Receiver topology per A5 spike (per-session receiver, off-heap queue,
+      watermark drop + dropped telemetry)
+- [x] recon-style budgets enforced: max events / rate / wall clock → auto-detach, `:expired` in UI
+- [x] `left_by_death` vs deliberate unsubscribe distinction (tracer-owned monitors)
+- [x] Timeline upgraded in place: caller attribution, no polling gap
+- [x] Session/budget UX (B5): pre-arm attachment preview, live countdown + event meter
 
 ## v0.4 — Payloads and fan-out (Layer 3)
 
