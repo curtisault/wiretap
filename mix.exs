@@ -6,6 +6,11 @@ defmodule Wiretap.MixProject do
       app: :wiretap,
       version: "0.1.0",
       elixir: "~> 1.17",
+      description: "See who's listening on your Phoenix.PubSub topics — live.",
+      package: [
+        licenses: ["MIT"],
+        links: %{"GitHub" => "https://github.com/curtisault/wiretap"}
+      ],
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
@@ -13,7 +18,7 @@ defmodule Wiretap.MixProject do
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:ex_unit]
       ],
-      docs: [main: "Wiretap"]
+      docs: [main: "Wiretap", extras: ["CHANGELOG.md"]]
     ]
   end
 
