@@ -325,6 +325,7 @@ Record answers here as they land, newest first.
 
 | Date | ID | Decision |
 |---|---|---|
+| 2026-08-15 | B3, B4, B6, B8, B9 | **Resolved in the v0.2 design session** (follow-mode/batching, prefix grouping, empty-state inventory, hand-rolled CSS + phosphor-green identity, headless-parity rule), plus telemetry bridge, probe gate (deviation from §4.4 dev-default: explicit opt-in), monitor-based left_by_death, and the file-sink format. Details: [timeline/discovery.md](timeline/discovery.md) |
 | 2026-08-15 | A3 | **Resolved**: Wiretap telemetry taxonomy fixed (session start/stop as spans, budget-exhausted as its own alarm event, registry-incompatible signal). Full table: [core/discovery.md](core/discovery.md) |
 | 2026-08-15 | A9 | **Resolved**: pid label = registered name → `$initial_call` (LiveView special-cased) → `inspect(pid)`; ancestor/caller chains only in the v0.4 Inspector. Details: [core/discovery.md](core/discovery.md) |
 | 2026-08-15 | A8 | **Resolved — floors stay at OTP 27 / Elixir 1.17.** Support policy: declared floor = tested floor (oldest CI cell verifies the mix.exs claim); OTP floor is runtime-enforced (loud refusal) + CI-verified since mix/hex cannot gate on OTP; floors move only when an API forces it |
