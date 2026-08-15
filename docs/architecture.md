@@ -1,8 +1,8 @@
 # Wiretap — PubSub Listener Architecture
 
-> Planning document for a standalone open-source library. Drafted 2026-08-14 out of the
-> universal-search silo-set work, where validating PubSub subscription hygiene (subscribe
-> only while a modal is open, only for one well, never for unassigned records) required
+> Planning document for a standalone open-source library. Drafted 2026-08-14 out of
+> internal work where validating PubSub subscription hygiene (subscribe only while a
+> modal is open, only for the record it shows, never for unassigned records) required
 > hand-rolled `Registry` inspection, LiveDebugger callback traces, and a CI test that
 > reads the PubSub registry directly. No library exists for this; this document is the
 > blueprint for building one. A deep implementation-discovery session follows later —
@@ -108,7 +108,7 @@ composes them.
 **Answers:** what topics exist right now, and which pids subscribe to each.
 
 **Mechanism:** `Registry.select/2` against the PubSub registry (its name is the
-`Phoenix.PubSub` name, e.g. `TSS.PubSub`), the same call our CI test uses:
+`Phoenix.PubSub` name, e.g. `MyApp.PubSub`), the same call the origin CI test uses:
 
 ```elixir
 Registry.select(pubsub, [{{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}])
@@ -138,7 +138,7 @@ arguments — with no polling gap.
 
 - `Phoenix.PubSub.subscribe/3`, `Phoenix.PubSub.unsubscribe/2`
 - `Registry.register/3`, `Registry.unregister/2` (catches direct-Registry users)
-- optionally the host's own wrapper functions (e.g. `TSS.SiloSets.subscribe/1`), added
+- optionally the host's own wrapper functions (e.g. `MyApp.Stations.subscribe/1`), added
   per-session by the user from the UI — this is the "inject a listener anywhere without
   injecting code" capability: the injection point is a trace pattern, not a code change.
 
@@ -150,7 +150,7 @@ Non-negotiable implementation rules, learned from the tools that do this well:
    API is effectively single-tenant per traced process and *will* collide in any app
    that also runs LiveDebugger (ours does). This decides the minimum OTP version.
 2. **Match specs narrow everything.** Trace only the listed MFAs; use match-spec guards
-   to filter by topic prefix at the trace layer (e.g. only `"silo_sets:" <> _`) so
+   to filter by topic prefix at the trace layer (e.g. only `"station:" <> _`) so
    uninteresting calls never generate trace messages at all.
 3. **recon-style overload protection.** Every session carries a budget: max events
    (default ~1 000), max duration (default ~60s), max events/sec; hitting any bound
@@ -226,7 +226,7 @@ For the rare case where in-band context beats external attachment:
 
 ```elixir
 require Wiretap.Probe
-Wiretap.Probe.tap("silo_sets:#{well_id}", label: "modal open", meta: %{user: user.id})
+Wiretap.Probe.tap("station:#{station_id}", label: "modal open", meta: %{user: user.id})
 ```
 
 Compiles to the event emission only when `config :wiretap, probes: true` (dev default);
@@ -293,8 +293,8 @@ Two-part split, one hex package:
 - **Core** (`Wiretap`, `Wiretap.Session`, `Wiretap.Tracer`, `Wiretap.Snapshot`,
   `Wiretap.Collector`, `Wiretap.Probe`) — plain Elixir. Hard deps: `phoenix_pubsub`
   (which is itself Phoenix-free) and `telemetry`. Fully usable headless from iex and
-  ExUnit — `Wiretap.Snapshot.topics(TSS.PubSub)` should be a better assertion helper
-  than the hand-rolled `Registry.keys/2` our search test uses today.
+  ExUnit — `Wiretap.Snapshot.topics(MyApp.PubSub)` should be a better assertion helper
+  than the hand-rolled `Registry.keys/2` the origin test uses today.
 - **UI** — `phoenix_live_view`, `phoenix`, `bandit` as **optional deps**; every UI
   module wrapped in `if Code.ensure_loaded?(Phoenix.LiveView)`. Host apps install
   `{:wiretap, "~> 0.1", only: :dev}` and get the endpoint; a plain OTP app gets the
@@ -356,7 +356,7 @@ cd wiretap
 git init && git add -A && git commit -m "mix new wiretap --sup"
 gh repo create curtisault/wiretap --private --source=. --push   # flip public at v0.1
 
-# 2. Tooling baseline (mirrors SandDrive conventions)
+# 2. Tooling baseline (mirrors the origin project's conventions)
 #    add to mix.exs deps and commit each with its config:
 #      {:styler, "~> 1.2", only: [:dev, :test], runtime: false}
 #      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
@@ -390,7 +390,7 @@ mix hex.build   # dry-run packaging before ever publishing
 ```
 
 Development sequencing note: build `Wiretap.Snapshot` first (pure, trivially testable,
-immediately useful in SandDrive's own tests), then the v0 LiveDashboard page against it,
+immediately useful in the origin project's own tests), then the v0 LiveDashboard page against it,
 then the Tracer — tracing is the highest-risk component and benefits from the session/
 collector scaffolding already existing.
 
@@ -416,4 +416,4 @@ hardened session/collector scaffolding.
 5. Whether the v0 LiveDashboard page survives into v1 or gets retired to cut a
    maintenance surface.
 6. Adapter coverage: PG2 adapter only at first? Redis adapter introspection differs.
-7. License (MIT assumed) and whether SandDrive dogfoods a path dep before hex publish.
+7. License (MIT assumed) and whether the origin project dogfoods a path dep before hex publish.
