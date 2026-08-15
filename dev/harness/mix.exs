@@ -41,6 +41,7 @@ defmodule Harness.MixProject do
   defp deps do
     [
       {:wiretap, path: "../.."},
+      {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix, "~> 1.8.9"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
