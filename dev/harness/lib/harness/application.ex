@@ -11,7 +11,7 @@ defmodule Harness.Application do
       HarnessWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:harness, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Harness.PubSub},
-      Harness.Broadcaster,
+      Harness.Tower,
       # Start to serve requests, typically the last entry
       HarnessWeb.Endpoint
     ]

@@ -1,8 +1,12 @@
 defmodule HarnessWeb.PageControllerTest do
-  use HarnessWeb.ConnCase
+  use HarnessWeb.ConnCase, async: true
 
-  test "GET /", %{conn: conn} do
+  test "GET / renders the demo launcher", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    response = html_response(conn, 200)
+
+    assert response =~ "Wiretap harness"
+    assert response =~ "ATC console"
+    assert response =~ "/dashboard/wiretap"
   end
 end
