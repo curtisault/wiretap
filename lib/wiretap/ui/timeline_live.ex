@@ -21,7 +21,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
          total: 0,
          refresh_pending?: false,
          arm_trace?: false,
-         arm_prefixes: ""
+         arm_prefixes: "",
+         selected_event: nil
        )}
     end
 
@@ -37,7 +38,11 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
       {:noreply,
        socket
-       |> assign(sessions: Wiretap.sessions(), selected: selected && selected.name)
+       |> assign(
+         sessions: Wiretap.sessions(),
+         selected: selected && selected.name,
+         selected_event: nil
+       )
        |> load_events()}
     end
 
@@ -98,6 +103,15 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       {:noreply, socket |> assign(sessions: Wiretap.sessions()) |> load_events()}
     end
 
+    def handle_event("inspect", %{"seq" => seq}, socket) do
+      seq = String.to_integer(seq)
+      {:noreply, assign(socket, selected_event: Enum.find(socket.assigns.events, &(&1.seq == seq)))}
+    end
+
+    def handle_event("close_inspect", _params, socket) do
+      {:noreply, assign(socket, selected_event: nil)}
+    end
+
     defp nudge_topic(name), do: "wiretap:session:" <> name
 
     defp find_session(nil), do: nil
@@ -122,6 +136,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       at
       |> DateTime.from_unix!(:microsecond)
       |> Calendar.strftime("%H:%M:%S.%f")
+    end
+
+    defp at_iso(at) do
+      at |> DateTime.from_unix!(:microsecond) |> DateTime.to_iso8601()
     end
 
     defp approx?(event), do: event.source == :snapshot
@@ -252,7 +270,13 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           />
 
           <div :if={@events != []} id="wiretap-timeline" class="wt-log" phx-hook="WiretapFollow">
-            <div :for={event <- @events} class="wt-row">
+            <div
+              :for={event <- @events}
+              class="wt-row wt-clickable"
+              phx-click="inspect"
+              phx-value-seq={event.seq}
+              title="click for the full event"
+            >
               <span class="wt-time">{at_time(event.at)}</span>
               <span class={"wt-kind wt-kind-#{event.kind}"}>{event.kind}</span>
               <span :if={approx?(event)} class="wt-approx" title="approximate: seen by snapshot polling">≈</span>
@@ -264,6 +288,59 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           </button>
         <% end %>
       </main>
+
+      <div :if={@selected_event} class="wt-modal">
+        <div class="wt-modal-backdrop" phx-click="close_inspect"></div>
+        <div class="wt-modal-box">
+          <h3>event #{@selected_event.seq} — {@selected_event.kind}</h3>
+          <table class="wt-detail">
+            <tbody>
+              <tr>
+                <td>at</td>
+                <td>{at_iso(@selected_event.at)}</td>
+              </tr>
+              <tr>
+                <td>kind</td>
+                <td>{@selected_event.kind}</td>
+              </tr>
+              <tr>
+                <td>source</td>
+                <td>
+                  {@selected_event.source}
+                  <span :if={approx?(@selected_event)} class="wt-approx">
+                    ≈ approximate (snapshot polling)
+                  </span>
+                </td>
+              </tr>
+              <tr :if={@selected_event.topic}>
+                <td>topic</td>
+                <td>{@selected_event.topic}</td>
+              </tr>
+              <tr :if={@selected_event.pid}>
+                <td>pid</td>
+                <td>{inspect(@selected_event.pid)} ({@selected_event.pid_label})</td>
+              </tr>
+              <tr :if={@selected_event.payload_preview}>
+                <td>payload</td>
+                <td><pre>{@selected_event.payload_preview}</pre></td>
+              </tr>
+              <tr :if={map_size(@selected_event.meta) > 0}>
+                <td>meta</td>
+                <td><pre>{inspect(@selected_event.meta, pretty: true, width: 60)}</pre></td>
+              </tr>
+              <tr>
+                <td>session</td>
+                <td>{@selected_event.session}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="wt-dim wt-headless-hint">
+            headless twin: Wiretap.events("{@selected_event.session}")
+            |> Enum.find(&amp;(&amp;1.seq == {@selected_event.seq}))
+          </p>
+          <button class="wt-btn" phx-click="close_inspect">close</button>
+        </div>
+      </div>
       """
     end
 
