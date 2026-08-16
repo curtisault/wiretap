@@ -42,7 +42,8 @@ defmodule HarnessWeb.DemoLive do
         last_event: nil,
         received: [],
         leaked: 0,
-        selected: nil
+        selected: nil,
+        arm_trace?: true
       )
       |> refresh_registry_truth()
 
@@ -82,8 +83,17 @@ defmodule HarnessWeb.DemoLive do
      |> refresh_registry_truth()}
   end
 
+  def handle_event("arm_change", params, socket) do
+    {:noreply, assign(socket, arm_trace?: params["trace"] == "on")}
+  end
+
   def handle_event("start_session", _params, socket) do
-    {:ok, _name} = Wiretap.watch(Harness.PubSub, interval_ms: 500)
+    opts =
+      if socket.assigns.arm_trace?,
+        do: [trace: true],
+        else: [interval_ms: 500]
+
+    {:ok, _name} = Wiretap.watch(Harness.PubSub, opts)
     {:noreply, refresh_registry_truth(socket)}
   end
 
@@ -141,6 +151,7 @@ defmodule HarnessWeb.DemoLive do
         %{
           name: session.name,
           status: session.status,
+          traced?: session.trace != false,
           events: length(Wiretap.events(session.name))
         }
       end
@@ -219,15 +230,32 @@ defmodule HarnessWeb.DemoLive do
               <p class="text-sm opacity-70">
                 real capture sessions recording joined/left events on Harness.PubSub — start one,
                 track and untrack flights, and watch the count climb until the 60s budget expires
-                it. sessions observe from outside: they never appear in registry truth below
+                it. sessions observe from outside: they never appear in registry truth below.
+                "exact" sessions use layer-2 call tracing (caller-attributed, no polling gap);
+                unticked falls back to ≈ snapshot polling
               </p>
-              <button class="btn btn-sm" phx-click="start_session">
-                start a session (60s budget)
-              </button>
+              <form
+                class="flex items-center gap-3 flex-wrap"
+                phx-change="arm_change"
+                phx-submit="start_session"
+              >
+                <label class="flex items-center gap-1 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="trace"
+                    checked={@arm_trace?}
+                    class="checkbox checkbox-xs"
+                  /> exact (call tracing)
+                </label>
+                <button class="btn btn-sm" type="submit">
+                  start a session (60s budget)
+                </button>
+              </form>
               <ul class="font-mono text-sm space-y-1">
                 <li :for={session <- @sessions} class="flex items-center gap-2">
                   {session.name}
                   <span class={["badge", badge_class(session.status)]}>{session.status}</span>
+                  <span class="badge badge-outline">{if session.traced?, do: "exact", else: "≈ approx"}</span>
                   <span class="opacity-70">{session.events} events</span>
                   <button
                     :if={session.status == :running}
