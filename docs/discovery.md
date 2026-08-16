@@ -129,8 +129,19 @@ statement than §4.5's hedge.
 ### A8. Version floor: OTP 27 / Elixir 1.17 — still right?
 
 OTP 29 is current; 27 as floor is generous, not aggressive. **Recommendation:** keep
-OTP 27 / Elixir 1.17 floor, CI-test the full matrix through OTP 29 / Elixir 1.19 (C7).
+OTP 27 / Elixir 1.17 floor, CI-test the full matrix through the current stable pair (C7).
 Revisit only if a needed trace-session API turns out to be 28+.
+
+**Support policy (decided 2026-08-15): the floor we declare is the floor we test.**
+`elixir: "~> 1.17"` in mix.exs *enforces* the floor (Mix refuses older hosts) but
+verifies nothing — code using a 1.18+ stdlib function would still install fine on 1.17
+and fail at runtime. The CI matrix's oldest cell is what keeps the declaration honest;
+shrinking the matrix means raising the floor to match. Note the asymmetry: the **OTP
+floor cannot be enforced** by mix/hex at all (there is no `otp:` requirement field) —
+it is enforced at runtime by the tracer's loud-refusal path when `:trace` sessions are
+unavailable (§8.3), and verified pre-merge only by the OTP 27 CI cell. Raising floors
+trades away adoption (host teams lag the toolchain), so floors move only when an API
+forces it, never for convenience.
 
 ### A9. Pid labeling depth (carried from §11.4)
 
@@ -314,6 +325,9 @@ Record answers here as they land, newest first.
 
 | Date | ID | Decision |
 |---|---|---|
+| 2026-08-15 | A3 | **Resolved**: Wiretap telemetry taxonomy fixed (session start/stop as spans, budget-exhausted as its own alarm event, registry-incompatible signal). Full table: [core/discovery.md](core/discovery.md) |
+| 2026-08-15 | A9 | **Resolved**: pid label = registered name → `$initial_call` (LiveView special-cased) → `inspect(pid)`; ancestor/caller chains only in the v0.4 Inspector. Details: [core/discovery.md](core/discovery.md) |
+| 2026-08-15 | A8 | **Resolved — floors stay at OTP 27 / Elixir 1.17.** Support policy: declared floor = tested floor (oldest CI cell verifies the mix.exs claim); OTP floor is runtime-enforced (loud refusal) + CI-verified since mix/hex cannot gate on OTP; floors move only when an API forces it |
 | 2026-08-14 | A6 | **Spike passed** (12/12, OTP 29): seq_trace system tracer remains a per-node singleton under trace sessions — arbitration design confirmed necessary; token propagates through PubSub broadcast to all subscribers with timestamps; foreign tracer detectable; coexists with call-trace sessions. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
 | 2026-08-14 | A4 | **Spike run**: select at 10k subs ≈ 1.8ms (cost is a non-issue); 1s polling misses 54% of ~500ms subscribe/unsubscribe episodes and 93% of ~100ms ones. Default 1s, auto-tighten to 250ms while a panel is focused, honesty label required. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
 | 2026-08-14 | A1 | **Spike passed** (84/84): select-based snapshot, unsubscribe removal, and death cleanup identical across phoenix_pubsub 2.0.0–2.2.0 and all partition/`group_by` configs. Keep `~> 2.1` pin + startup shape-probe. Details: [bootstrap/discovery.md](bootstrap/discovery.md) |
