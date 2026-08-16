@@ -118,6 +118,13 @@ defmodule Wiretap.Collector do
 
     captured = seq + 1
 
+    # UI nudge (§5): count only, never payloads. UIs coalesce and re-read ETS.
+    Phoenix.PubSub.broadcast(
+      Wiretap.PubSub,
+      "wiretap:session:" <> session.name,
+      {:wiretap_events, session.name, captured}
+    )
+
     if captured == session.max_events do
       send(Wiretap.SessionManager, {:budget_exhausted, session.name, :max_events})
     end
