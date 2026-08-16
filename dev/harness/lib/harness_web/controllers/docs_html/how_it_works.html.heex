@@ -37,15 +37,22 @@
 │                                                                        │
 │   Wiretap.Snapshot ── take/1 ──▶ topic → [pids]   (layer 1)            │
 │         │                                                              │
-│         │ diff/2: what changed between two snapshots                   │
-│         ▼                                                              │
-│   Wiretap.Snapshotter ── polls per session interval                    │
-│         │   emits :joined / :left events (source: :snapshot)           │
-│         ▼                                                              │
+│   session without :trace         │  session with trace: true           │
+│         ▼                        │        ▼                            │
+│   Wiretap.Snapshotter            │  Wiretap.Tracer  (layer 2)          │
+│     polls + diffs per interval   │    OTP trace session on             │
+│     :joined/:left ≈ approximate  │    subscribe/unsubscribe:           │
+│     monitors → left_by_death     │    exact events, {:caller}          │
+│         │                        │    attribution, VM-level topic      │
+│         │                        │    prefix filters, monitors →       │
+│         │                        │    left_by_death                    │
+│         │                        │        │                            │
+│         └───────────┬────────────┴────────┘                            │
+│                     ▼                                                  │
 │   Wiretap.Collector ── per-session ETS ring buffer (10k events)        │
 │         ▲                    heir: SessionManager, so events           │
 │         │                    outlive the session                       │
-│   Wiretap.SessionManager ── budgets (max events / max duration),       │
+│   Wiretap.SessionManager ── budgets (events / duration / rate),        │
 │                             teardown on stop/expiry/crash,             │
 │                             telemetry ([:wiretap, ...])                │
 └────────────────────────────────────────────────────────────────────────┘
@@ -79,6 +86,10 @@
               <td>Harness LiveView tests</td>
               <td>Wiretap.Test.assert_subscribed/refute_subscribed</td>
             </tr>
+            <tr>
+              <td>Standalone UI (:4008) Roll Call + Timeline</td>
+              <td>Wiretap.Snapshot.roll_call/2 · Wiretap.events/1 · watch/2 trace: true</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -92,12 +103,14 @@
       <h2 class="font-semibold">Sessions, budgets, and the event pipeline</h2>
       <p class="text-sm opacity-80">
         A capture session polls the registry on an interval, diffs consecutive snapshots,
-        and records events. Every session carries budgets — max events and max duration —
-        and hitting either bound expires it automatically. Every event carries two axes:
-        <span class="font-mono">kind</span>
+        and records events. Every session carries three budgets — max events, max
+        duration, and max rate (events/sec) — and hitting any bound expires it
+        automatically. Every event carries two axes: <span class="font-mono">kind</span>
         (what happened: joined, left) and <span class="font-mono">source</span>
-        (how Wiretap knows: snapshot polling is
-        approximate; exact call-tracing arrives in a later release).
+        (how Wiretap knows: snapshot polling is approximate; sessions armed with
+        <span class="font-mono">trace: true</span>
+        record exact, caller-attributed
+        events through OTP trace sessions — no polling gap).
       </p>
       <pre class="font-mono text-xs leading-snug overflow-x-auto" phx-no-curly-interpolation>
    Wiretap.watch/2                     stop/1        budget hit      crash
@@ -147,6 +160,9 @@ Wiretap.subscribers(Harness.PubSub, "atc:events")
 
 {:ok, s} = Wiretap.watch(Harness.PubSub, interval_ms: 250)
 Wiretap.events(s)                         # joined/left events with pid labels
+
+{:ok, t} = Wiretap.watch(Harness.PubSub, trace: [prefixes: ["flight:"]])
+Wiretap.events(t)                         # exact events with caller attribution
 Wiretap.sessions()                        # budgets and status
 Wiretap.stop(s)</code></pre>
     </div>

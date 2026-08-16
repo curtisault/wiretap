@@ -92,24 +92,30 @@ defmodule HarnessWeb.DemoLiveTest do
     refute render(view) =~ "WT-999 — transmission"
   end
 
-  test "the sessions card starts, shows, and stops a real capture session",
+  test "the sessions card starts a traced session by default, shows it, and stops it",
        %{view: view, flight_a: a} do
-    html = view |> element("button", "start a session (60s budget)") |> render_click()
+    html = view |> element("form[phx-submit=start_session]") |> render_submit()
     assert html =~ "badge-success"
+    assert html =~ "exact"
 
     session =
       Enum.find(Wiretap.sessions(), &(&1.status == :running and &1.pubsub == Harness.PubSub))
 
     assert session, "expected a running session watching Harness.PubSub"
+    assert session.trace == %{prefixes: [], mfas: []}
 
     # session observes from outside: it never subscribes to host topics
     refute html =~ ~r/Registry truth.*wiretap/s
 
-    # generate an event the session can capture, then verify it recorded
+    # generate an event the session can capture, then verify it recorded it
+    # exactly: source :trace with a caller MFA, not a snapshot approximation
     track(view, a)
 
     eventually(fn ->
-      assert Enum.any?(Wiretap.events(session.name), &(&1.kind == :joined))
+      assert Enum.any?(
+               Wiretap.events(session.name),
+               &(&1.kind == :joined and &1.source == :trace and match?({_, _, _}, &1.meta.caller))
+             )
     end)
 
     view
