@@ -39,14 +39,23 @@ defmodule Wiretap.SessionManagerTest do
       spawn(fn ->
         :ok = Phoenix.PubSub.subscribe(pubsub, topic)
         send(parent, {:ready, self()})
-
-        receive do
-          :stop -> :ok
-        end
+        subscriber_loop(parent, pubsub, topic)
       end)
 
     assert_receive {:ready, ^pid}
     pid
+  end
+
+  defp subscriber_loop(parent, pubsub, topic) do
+    receive do
+      :unsubscribe ->
+        :ok = Phoenix.PubSub.unsubscribe(pubsub, topic)
+        send(parent, {:unsubscribed, self()})
+        subscriber_loop(parent, pubsub, topic)
+
+      :stop ->
+        :ok
+    end
   end
 
   defp eventually(fun, tries \\ 100) do
@@ -86,13 +95,42 @@ defmodule Wiretap.SessionManagerTest do
       assert is_binary(joined.pid_label)
     end)
 
-    send(listener, :stop)
+    send(listener, :unsubscribe)
+    assert_receive {:unsubscribed, ^listener}
 
     eventually(fn ->
-      assert Enum.any?(
-               Wiretap.events(session),
-               &(&1.kind == :left and &1.pid == listener and &1.topic == "station:jazz")
-             )
+      assert %Event{source: :snapshot} =
+               Enum.find(
+                 Wiretap.events(session),
+                 &(&1.kind == :left and &1.pid == listener and &1.topic == "station:jazz")
+               )
+    end)
+
+    :ok = Wiretap.stop(session)
+  end
+
+  test "a subscriber that dies is recorded as left_by_death with the exit reason" do
+    pubsub = start_pubsub()
+    # baseline subscriber: monitors must cover pids seen before the session too
+    early = subscribe(pubsub, "station:news")
+    {:ok, session} = Wiretap.watch(pubsub, interval_ms: 25)
+    late = subscribe(pubsub, "station:jazz")
+
+    eventually(fn ->
+      assert Enum.any?(Wiretap.events(session), &(&1.kind == :joined and &1.pid == late))
+    end)
+
+    send(late, :stop)
+    Process.exit(early, :kill)
+
+    eventually(fn ->
+      events = Wiretap.events(session)
+
+      assert %Event{source: :monitor, meta: %{reason: :normal}} =
+               Enum.find(events, &(&1.kind == :left_by_death and &1.pid == late))
+
+      assert %Event{source: :monitor, meta: %{reason: :killed}, topic: "station:news"} =
+               Enum.find(events, &(&1.kind == :left_by_death and &1.pid == early))
     end)
 
     :ok = Wiretap.stop(session)
