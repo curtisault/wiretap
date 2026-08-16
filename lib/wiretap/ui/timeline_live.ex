@@ -11,13 +11,17 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
     @impl true
     def mount(_params, _session, socket) do
+      if connected?(socket), do: Process.send_after(self(), :countdown_tick, 1_000)
+
       {:ok,
        assign(socket,
          sessions: Wiretap.sessions(),
          selected: nil,
          events: [],
          total: 0,
-         refresh_pending?: false
+         refresh_pending?: false,
+         arm_trace?: false,
+         arm_prefixes: ""
        )}
     end
 
@@ -53,9 +57,24 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       {:noreply, socket |> assign(refresh_pending?: false) |> load_events()}
     end
 
+    # 1s heartbeat: live countdown and status flips (running → expired) without
+    # waiting for an event nudge.
+    def handle_info(:countdown_tick, socket) do
+      Process.send_after(self(), :countdown_tick, 1_000)
+      {:noreply, assign(socket, sessions: Wiretap.sessions())}
+    end
+
     @impl true
     def handle_event("select", %{"session" => name}, socket) do
       {:noreply, push_patch(socket, to: "/timeline?session=#{name}")}
+    end
+
+    def handle_event("arm_change", params, socket) do
+      {:noreply,
+       assign(socket,
+         arm_trace?: params["trace"] == "on",
+         arm_prefixes: params["prefixes"] || socket.assigns.arm_prefixes
+       )}
     end
 
     def handle_event("start_session", _params, socket) do
@@ -64,7 +83,12 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           {:noreply, socket}
 
         pubsub ->
-          {:ok, name} = Wiretap.watch(pubsub)
+          opts =
+            if socket.assigns.arm_trace?,
+              do: [trace: [prefixes: parse_prefixes(socket.assigns.arm_prefixes)]],
+              else: []
+
+          {:ok, name} = Wiretap.watch(pubsub, opts)
           {:noreply, push_patch(socket, to: "/timeline?session=#{name}")}
       end
     end
@@ -102,6 +126,37 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
     defp approx?(event), do: event.source == :snapshot
 
+    defp parse_prefixes(input) do
+      input
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+    end
+
+    # B5: say exactly what arming will attach, before the confirm.
+    defp arm_preview(false, _prefixes) do
+      "will attach: registry snapshot polling (~1s, approximate) · budgets: 1000 ev / 60s / 250 ev/s"
+    end
+
+    defp arm_preview(true, prefixes) do
+      scope =
+        case parse_prefixes(prefixes) do
+          [] -> "all topics"
+          list -> "prefixes " <> Enum.join(list, ", ")
+        end
+
+      "will attach: call tracing on Phoenix.PubSub.subscribe/2,3 + unsubscribe/2 " <>
+        "(#{scope}; exact, caller-attributed) + baseline monitors · budgets: 1000 ev / 60s / 250 ev/s"
+    end
+
+    defp resolution_chip(%{trace: false} = session) do
+      "resolution ≈ #{session.interval_ms}ms (snapshot polling) — arm with trace for exact events"
+    end
+
+    defp resolution_chip(_traced_session) do
+      "exact: call tracing armed (caller-attributed); deaths via monitors"
+    end
+
     defp describe(%{kind: :telemetry} = event) do
       "#{inspect(event.meta.event)} #{event.payload_preview}"
     end
@@ -131,22 +186,34 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
               </option>
             </select>
           </form>
-          <button :if={Wiretap.UI.pubsub()} class="wt-btn" phx-click="start_session">
-            start session
-          </button>
         </div>
+
+        <form
+          :if={Wiretap.UI.pubsub()}
+          class="wt-arm"
+          phx-change="arm_change"
+          phx-submit="start_session"
+        >
+          <label>
+            <input type="checkbox" name="trace" checked={@arm_trace?} /> trace (exact events)
+          </label>
+          <input
+            :if={@arm_trace?}
+            type="text"
+            name="prefixes"
+            value={@arm_prefixes}
+            placeholder="topic prefixes, comma-separated (optional)"
+            phx-debounce="150"
+          />
+          <button class="wt-btn" type="submit">arm session</button>
+          <span class="wt-dim wt-preview">{arm_preview(@arm_trace?, @arm_prefixes)}</span>
+        </form>
 
         <Layouts.empty_state
           :if={@sessions == []}
           title="No capture sessions yet."
-          body="A session polls the registry, diffs, and records joined/left events with budgets."
-        >
-          <:action>
-            <button :if={Wiretap.UI.pubsub()} class="wt-btn" phx-click="start_session">
-              start one
-            </button>
-          </:action>
-        </Layouts.empty_state>
+          body="A session records joined/left events with budgets — arm one above."
+        />
 
         <Layouts.empty_state
           :if={@sessions != [] and @selected == nil}
@@ -157,9 +224,12 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         <%= if session = session_struct(assigns_to_socket(assigns)) do %>
           <div class="wt-session-bar">
             <span class={"wt-badge wt-#{session.status}"}>{session.status}</span>
+            <span class="wt-dim">{resolution_chip(session)}</span>
             <span class="wt-dim">
-              resolution ≈ {session.interval_ms}ms (snapshot polling) — exact timing and caller
-              attribution arrive with trace sessions (v0.3)
+              {@total}/{session.max_events} events · cap {session.max_rate}/s
+            </span>
+            <span :if={session.status == :running} class="wt-dim">
+              {div(Wiretap.Session.remaining_ms(session), 1000)}s left
             </span>
             <span :if={@total > length(@events)} class="wt-dim">
               showing last {length(@events)} of {@total}

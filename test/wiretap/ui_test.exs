@@ -133,19 +133,39 @@ defmodule Wiretap.UITest do
       assert html =~ "stopped"
     end
 
-    test "start-session control creates a session on the configured pubsub", %{conn: conn, pubsub: pubsub} do
+    test "the arm form previews attachments and starts a plain session",
+         %{conn: conn, pubsub: pubsub} do
+      {:ok, view, html} = live(conn, "/timeline")
+      assert html =~ "snapshot polling (~1s, approximate)"
+
+      view |> element("form.wt-arm") |> render_submit()
+
+      session = Enum.find(Wiretap.sessions(), &(&1.pubsub == pubsub and &1.status == :running))
+      assert session
+      assert session.trace == false
+
+      Wiretap.stop(session.name)
+    end
+
+    test "arming with trace shows the exact-events preview and traces the session",
+         %{conn: conn, pubsub: pubsub} do
       {:ok, view, _html} = live(conn, "/timeline")
-      view |> element("button.wt-btn", "start session") |> render_click()
 
-      assert Enum.any?(
-               Wiretap.sessions(),
-               &(&1.pubsub == pubsub and &1.status == :running)
-             )
+      html =
+        view
+        |> element("form.wt-arm")
+        |> render_change(%{"trace" => "on", "prefixes" => "station:"})
 
-      # cleanup
-      for s <- Wiretap.sessions(), s.pubsub == pubsub and s.status == :running do
-        Wiretap.stop(s.name)
-      end
+      assert html =~ "call tracing on Phoenix.PubSub.subscribe/2,3"
+      assert html =~ "prefixes station:"
+
+      html = view |> element("form.wt-arm") |> render_submit()
+      assert html =~ "exact: call tracing armed"
+
+      session = Enum.find(Wiretap.sessions(), &(&1.pubsub == pubsub and &1.status == :running))
+      assert session.trace == %{prefixes: ["station:"], mfas: []}
+
+      Wiretap.stop(session.name)
     end
   end
 end

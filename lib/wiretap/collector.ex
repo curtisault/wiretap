@@ -61,7 +61,15 @@ defmodule Wiretap.Collector do
             {:heir, manager, session.name}
           ])
 
-        {:ok, %{tab: tab, seq: 0, session: session, log: log}}
+        {:ok,
+         %{
+           tab: tab,
+           seq: 0,
+           session: session,
+           log: log,
+           window_start: System.monotonic_time(:millisecond),
+           window_count: 0
+         }}
 
       {:error, reason} ->
         {:stop, {:log_file, reason}}
@@ -129,7 +137,26 @@ defmodule Wiretap.Collector do
       send(Wiretap.SessionManager, {:budget_exhausted, session.name, :max_events})
     end
 
-    {:noreply, %{state | seq: captured}}
+    {:noreply, count_rate(%{state | seq: captured})}
+  end
+
+  # The max_rate budget (discovery v0.3): events per 1s window, across every
+  # source — rate is the bound that actually protects a host from a hot path.
+  defp count_rate(state) do
+    now = System.monotonic_time(:millisecond)
+
+    {window_start, window_count} =
+      if now - state.window_start >= 1_000 do
+        {now, 1}
+      else
+        {state.window_start, state.window_count + 1}
+      end
+
+    if window_count == state.session.max_rate + 1 do
+      send(Wiretap.SessionManager, {:budget_exhausted, state.session.name, :max_rate})
+    end
+
+    %{state | window_start: window_start, window_count: window_count}
   end
 
   defp maybe_log(nil, _event), do: :ok

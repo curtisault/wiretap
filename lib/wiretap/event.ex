@@ -27,8 +27,11 @@ defmodule Wiretap.Event do
     meta: %{}
   ]
 
-  @typedoc "Semantic fact. `:probe`/`:telemetry` arrive in v0.2, `:message` in v0.4."
-  @type kind :: :joined | :left | :left_by_death | :probe | :telemetry | :message
+  @typedoc """
+  Semantic fact. `:call` is a traced user-added wrapper MFA hit (v0.3);
+  `:message` arrives in v0.4.
+  """
+  @type kind :: :joined | :left | :left_by_death | :probe | :telemetry | :call | :message
 
   @typedoc "How Wiretap learned it — the honesty axis."
   @type source :: :snapshot | :trace | :monitor | :probe | :telemetry | :receive_trace

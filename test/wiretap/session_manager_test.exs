@@ -77,7 +77,7 @@ defmodule Wiretap.SessionManagerTest do
   test "watch captures joined and left events with labels and honesty source" do
     pubsub = start_pubsub()
     {:ok, session} = Wiretap.watch(pubsub, interval_ms: 25)
-    assert_receive {:telemetry, [:wiretap, :session, :start], _, %{attachments: [:snapshot]}}
+    assert_receive {:telemetry, [:wiretap, :session, :start], _, %{session: ^session, attachments: [:snapshot]}}
 
     listener = subscribe(pubsub, "station:jazz")
 
@@ -154,8 +154,8 @@ defmodule Wiretap.SessionManagerTest do
 
     eventually(fn -> assert session_status(session) == :expired end)
 
-    assert_receive {:telemetry, [:wiretap, :budget, :exhausted], _, meta}
-    assert %{session: ^session, bound: :max_events, limit: 1} = meta
+    assert_receive {:telemetry, [:wiretap, :budget, :exhausted], _, %{session: ^session} = meta}
+    assert %{bound: :max_events, limit: 1} = meta
 
     assert_receive {:telemetry, [:wiretap, :session, :stop], %{events_captured: 1},
                     %{session: ^session, reason: :expired}}
@@ -167,8 +167,8 @@ defmodule Wiretap.SessionManagerTest do
 
     eventually(fn -> assert session_status(session) == :expired end)
 
-    assert_receive {:telemetry, [:wiretap, :budget, :exhausted], _, meta}
-    assert %{session: ^session, bound: :max_duration, limit: 50} = meta
+    assert_receive {:telemetry, [:wiretap, :budget, :exhausted], _, %{session: ^session} = meta}
+    assert %{bound: :max_duration, limit: 50} = meta
   end
 
   test "stop tears the session down; events remain readable afterwards" do
