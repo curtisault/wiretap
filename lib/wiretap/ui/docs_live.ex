@@ -82,6 +82,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.events/1, find by seq — the modal shows the exact expression</td>
               </tr>
               <tr>
+                <td>Topic inspector (click any Roll Call topic)</td>
+                <td>Wiretap.subscribers/2 + Wiretap.Snapshot.label/1 (cross-topic view from snapshot/1)</td>
+              </tr>
+              <tr>
                 <td>Arm form, "trace (exact events)"</td>
                 <td>Wiretap.watch(pubsub, trace: true) — or [prefixes: [...], mfas: [...]]</td>
               </tr>

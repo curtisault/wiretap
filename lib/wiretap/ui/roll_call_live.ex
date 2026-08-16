@@ -15,7 +15,12 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
       {:ok,
        socket
-       |> assign(pubsub: Wiretap.UI.pubsub(), filter: "", expanded: MapSet.new())
+       |> assign(
+         pubsub: Wiretap.UI.pubsub(),
+         filter: "",
+         expanded: MapSet.new(),
+         selected_topic: nil
+       )
        |> load()}
     end
 
@@ -28,6 +33,14 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     @impl true
     def handle_event("filter", %{"q" => q}, socket) do
       {:noreply, socket |> assign(filter: q) |> load()}
+    end
+
+    def handle_event("inspect_topic", %{"topic" => topic}, socket) do
+      {:noreply, assign(socket, selected_topic: topic_details(socket.assigns.pubsub, topic))}
+    end
+
+    def handle_event("close_topic", _params, socket) do
+      {:noreply, assign(socket, selected_topic: nil)}
     end
 
     def handle_event("toggle_group", %{"label" => label}, socket) do
@@ -56,11 +69,46 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             |> filter_rows(filter)
             |> Snapshot.group(":")
 
-          assign(socket, probe: :ok, groups: groups)
+          # keep an open topic inspector live-updating with the poll
+          selected_topic =
+            case Map.get(socket.assigns, :selected_topic) do
+              %{topic: topic} -> topic_details(pubsub, topic)
+              _ -> nil
+            end
+
+          assign(socket, probe: :ok, groups: groups, selected_topic: selected_topic)
 
         {:error, reason} ->
           assign(socket, probe: reason, groups: [])
       end
+    end
+
+    # Composed entirely from public functions (B9): subscribers/2, label/1, take/1.
+    defp topic_details(pubsub, topic) do
+      snapshot = Snapshot.take(pubsub)
+      pids = Map.get(snapshot, topic, [])
+
+      subscribers =
+        for pid <- pids do
+          other_topics =
+            snapshot
+            |> Enum.filter(fn {t, ps} -> t != topic and pid in ps end)
+            |> Enum.map(fn {t, _ps} -> t end)
+            |> Enum.sort()
+
+          %{
+            pid: pid,
+            label: Snapshot.label(pid),
+            alive?: Process.alive?(pid),
+            other_topics: other_topics
+          }
+        end
+
+      %{topic: topic, subscribers: subscribers}
+    end
+
+    defp more_topics(other_topics) do
+      if length(other_topics) > 6, do: " … +#{length(other_topics) - 6} more", else: ""
     end
 
     defp filter_rows(rows, ""), do: rows
@@ -132,7 +180,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
               <tr
                 :for={row <- group.topics}
                 :if={group.prefix == nil or MapSet.member?(@expanded, group.label)}
-                class={group.prefix && "wt-member"}
+                class={["wt-clickable", group.prefix && "wt-member"]}
+                phx-click="inspect_topic"
+                phx-value-topic={row.topic}
+                title="click for the topic's subscribers"
               >
                 <td>{row.topic}</td>
                 <td class="num">{row.subscribers}</td>
@@ -142,6 +193,42 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           </tbody>
         </table>
       </main>
+
+      <div :if={@selected_topic} class="wt-modal">
+        <div class="wt-modal-backdrop" phx-click="close_topic"></div>
+        <div class="wt-modal-box">
+          <h3>{@selected_topic.topic}</h3>
+          <p class="wt-dim">
+            {length(@selected_topic.subscribers)} subscriber(s) — live, updates with the poll
+          </p>
+
+          <p :if={@selected_topic.subscribers == []} class="wt-dim">
+            (nobody is subscribed to this topic anymore)
+          </p>
+
+          <table :if={@selected_topic.subscribers != []} class="wt-detail">
+            <tbody>
+              <tr :for={sub <- @selected_topic.subscribers}>
+                <td>{inspect(sub.pid)}</td>
+                <td>
+                  {sub.label}
+                  <span :if={not sub.alive?} class="wt-approx">dead</span>
+                  <div :if={sub.other_topics != []} class="wt-dim">
+                    also subscribed: {Enum.join(Enum.take(sub.other_topics, 6), ", ")}{more_topics(
+                      sub.other_topics
+                    )}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="wt-dim wt-headless-hint">
+            headless twin: Wiretap.subscribers({inspect(@pubsub)}, "{@selected_topic.topic}")
+          </p>
+          <button class="wt-btn" phx-click="close_topic">close</button>
+        </div>
+      </div>
       """
     end
   end
