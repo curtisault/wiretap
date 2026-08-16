@@ -55,6 +55,22 @@ defmodule Wiretap.Snapshot do
   end
 
   @doc """
+  Roll-call rows: one entry per topic with subscriber count and labeled pids.
+
+  This is the headless equivalent of the Roll Call panel (and what the
+  LiveDashboard page renders). Labels are computed on the node where the
+  pids live, so call this via `:erpc` for remote nodes.
+  """
+  @spec roll_call(pubsub()) :: [
+          %{topic: topic(), subscribers: non_neg_integer(), pids: [String.t()]}
+        ]
+  def roll_call(pubsub) do
+    for {topic, pids} <- take(pubsub) do
+      %{topic: topic, subscribers: length(pids), pids: Enum.map(pids, &label/1)}
+    end
+  end
+
+  @doc """
   Diffs two snapshots into `:joined` / `:left` edges.
 
   An edge is a `{topic, pid}` pair present in one snapshot and absent from the

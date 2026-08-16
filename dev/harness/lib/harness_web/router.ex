@@ -1,6 +1,8 @@
 defmodule HarnessWeb.Router do
   use HarnessWeb, :router
 
+  import Phoenix.LiveDashboard.Router
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -19,6 +21,9 @@ defmodule HarnessWeb.Router do
 
     get "/", PageController, :home
     live "/demo", DemoLive
+
+    live_dashboard "/dashboard",
+      additional_pages: [wiretap: {Wiretap.DashboardPage, pubsub: Harness.PubSub}]
   end
 
   # Other scopes may use custom stacks.

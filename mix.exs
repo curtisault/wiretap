@@ -47,6 +47,10 @@ defmodule Wiretap.MixProject do
       {:phoenix_pubsub, "~> 2.1"},
       {:telemetry, "~> 1.2"},
 
+      # Optional UI integration — hosts that run LiveDashboard get the Roll
+      # Call page; headless installs stay lean (§7).
+      {:phoenix_live_dashboard, "~> 0.8", optional: true},
+
       # Quality tooling (dev/test only).
       {:styler, "~> 1.2", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
