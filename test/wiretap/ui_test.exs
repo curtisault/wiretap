@@ -101,6 +101,29 @@ defmodule Wiretap.UITest do
       assert html =~ "Nobody is listening to"
     end
 
+    test "clicking a topic opens the subscriber inspector with cross-topic view",
+         %{conn: conn, pubsub: pubsub} do
+      listener = subscribe(pubsub, "station:jazz")
+      :ok = Phoenix.PubSub.subscribe(pubsub, "station:jazz")
+      :ok = Phoenix.PubSub.subscribe(pubsub, "atc:events")
+
+      {:ok, view, _html} = live(conn, "/")
+
+      html =
+        view
+        |> element("tr[phx-value-topic='station:jazz']")
+        |> render_click()
+
+      assert html =~ "2 subscriber(s)"
+      assert html =~ String.replace(inspect(listener), ["<", ">"], &%{"<" => "&lt;", ">" => "&gt;"}[&1])
+      # the test process subscribes to both topics: the cross-topic view shows it
+      assert html =~ "also subscribed: atc:events"
+      assert html =~ ~s(headless twin: Wiretap.subscribers)
+
+      html = view |> element(".wt-modal-box button", "close") |> render_click()
+      refute html =~ "headless twin"
+    end
+
     test "empty registry gets the explicit empty state", %{conn: conn, pubsub: pubsub} do
       {:ok, _view, html} = live(conn, "/")
       assert html =~ "Nobody is subscribed to anything on #{inspect(pubsub)}"
