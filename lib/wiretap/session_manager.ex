@@ -19,6 +19,7 @@ defmodule Wiretap.SessionManager do
   alias Wiretap.Collector
   alias Wiretap.Session
   alias Wiretap.Snapshot
+  alias Wiretap.TelemetryBridge
 
   require Logger
 
@@ -74,12 +75,14 @@ defmodule Wiretap.SessionManager do
   def handle_call({:watch, pubsub, opts}, _from, state) do
     session = Session.new(pubsub, opts)
 
-    with :ok <- probe_loudly(pubsub),
+    with :ok <- TelemetryBridge.validate(session.telemetry),
+         :ok <- probe_loudly(pubsub),
          {:ok, sup} <- start_session_tree(session) do
       tab = Collector.table(session.name)
       ref = Process.monitor(sup)
       timer = Process.send_after(self(), {:expire, session.name}, session.max_duration_ms)
       :ets.insert(@index, {session.name, session, tab})
+      :ok = TelemetryBridge.attach(session)
 
       :telemetry.execute(
         [:wiretap, :session, :start],
@@ -87,14 +90,18 @@ defmodule Wiretap.SessionManager do
         %{
           session: session.name,
           budgets: %{max_events: session.max_events, max_duration_ms: session.max_duration_ms},
-          attachments: [:snapshot]
+          attachments: attachments(session)
         }
       )
 
       entry = %{session: session, sup: sup, ref: ref, timer: timer, tab: tab}
       {:reply, {:ok, session.name}, put_in(state.sessions[session.name], entry)}
     else
-      {:error, reason} -> {:reply, {:error, reason}, state}
+      {:error, {:shutdown, {:failed_to_start_child, _child, {:log_file, reason}}}} ->
+        {:reply, {:error, {:log_file, reason}}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -183,9 +190,16 @@ defmodule Wiretap.SessionManager do
     DynamicSupervisor.start_child(Wiretap.SessionSupervisor, spec)
   end
 
+  defp attachments(session) do
+    [:snapshot] ++
+      if(session.telemetry == [], do: [], else: [:telemetry]) ++
+      if(session.log_file, do: [:log_file], else: [])
+  end
+
   defp finish(state, name, entry, reason, opts \\ []) do
     Process.cancel_timer(entry.timer)
     Process.demonitor(entry.ref, [:flush])
+    TelemetryBridge.detach(name)
 
     events_captured = captured_count(entry, reason)
 

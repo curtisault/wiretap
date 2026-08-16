@@ -49,17 +49,46 @@ defmodule Wiretap.Collector do
 
   @impl true
   def init(session) do
-    manager = Process.whereis(Wiretap.SessionManager)
+    case open_log(session) do
+      {:ok, log} ->
+        manager = Process.whereis(Wiretap.SessionManager)
 
-    tab =
-      :ets.new(:wiretap_events, [
-        :set,
-        :protected,
-        {:read_concurrency, true},
-        {:heir, manager, session.name}
-      ])
+        tab =
+          :ets.new(:wiretap_events, [
+            :set,
+            :protected,
+            {:read_concurrency, true},
+            {:heir, manager, session.name}
+          ])
 
-    {:ok, %{tab: tab, seq: 0, session: session}}
+        {:ok, %{tab: tab, seq: 0, session: session, log: log}}
+
+      {:error, reason} ->
+        {:stop, {:log_file, reason}}
+    end
+  end
+
+  # The file sink (discovery v0.2): append-only, one grep-able line per event,
+  # session header on open. The device is linked to this process, so it closes
+  # with the session.
+  defp open_log(%{log_file: nil}), do: {:ok, nil}
+
+  # The path is supplied by the host developer via watch/2 or app config —
+  # never by web input — so traversal is not a concern here.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp open_log(session) do
+    with {:ok, device} <- File.open(session.log_file, [:append, :utf8]) do
+      IO.write(device, header(session))
+      {:ok, device}
+    end
+  end
+
+  defp header(session) do
+    started = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+    "# wiretap session #{session.name} pubsub=#{inspect(session.pubsub)} " <>
+      "budgets=#{session.max_events}ev/#{div(session.max_duration_ms, 1_000)}s " <>
+      "started #{started}\n"
   end
 
   @impl true
@@ -85,6 +114,7 @@ defmodule Wiretap.Collector do
     }
 
     :ets.insert(tab, {rem(seq, @capacity), event})
+    maybe_log(state.log, event)
 
     captured = seq + 1
 
@@ -94,4 +124,35 @@ defmodule Wiretap.Collector do
 
     {:noreply, %{state | seq: captured}}
   end
+
+  defp maybe_log(nil, _event), do: :ok
+
+  defp maybe_log(device, event) do
+    at = event.at |> DateTime.from_unix!(:microsecond) |> DateTime.to_iso8601()
+
+    IO.write(device, [
+      at,
+      " ",
+      event.session,
+      " ",
+      Atom.to_string(event.kind),
+      " ",
+      event.topic || "-",
+      " ",
+      if(event.pid, do: inspect(event.pid), else: "-"),
+      " ",
+      inspect(event.pid_label || "-"),
+      " source=",
+      Atom.to_string(event.source),
+      meta_suffix(event.meta),
+      payload_suffix(event.payload_preview),
+      "\n"
+    ])
+  end
+
+  defp meta_suffix(meta) when map_size(meta) == 0, do: ""
+  defp meta_suffix(meta), do: " meta=" <> inspect(meta)
+
+  defp payload_suffix(nil), do: ""
+  defp payload_suffix(preview), do: " payload=" <> inspect(preview)
 end

@@ -13,9 +13,11 @@ defmodule Wiretap.Session do
     :name,
     :pubsub,
     :started_at,
+    :log_file,
     interval_ms: 1_000,
     max_events: 1_000,
     max_duration_ms: 60_000,
+    telemetry: [],
     status: :running
   ]
 
@@ -25,9 +27,11 @@ defmodule Wiretap.Session do
           name: String.t(),
           pubsub: atom(),
           started_at: integer() | nil,
+          log_file: String.t() | nil,
           interval_ms: pos_integer(),
           max_events: pos_integer(),
           max_duration_ms: pos_integer(),
+          telemetry: [[atom()]],
           status: status()
         }
 
@@ -36,7 +40,10 @@ defmodule Wiretap.Session do
 
   Options: `:name` (defaults to a generated `"wiretap-<random hex>"`, unique
   across VM restarts), `:interval_ms` (default 1000 — see discovery A4),
-  `:max_events` (default 1000), `:max_duration_ms` (default 60_000).
+  `:max_events` (default 1000), `:max_duration_ms` (default 60_000),
+  `:telemetry` (host telemetry event names to bridge into the session),
+  `:log_file` (append events to this file; defaults to
+  `config :wiretap, :log_file`).
   """
   @spec new(atom(), keyword()) :: t()
   def new(pubsub, opts \\ []) do
@@ -46,6 +53,8 @@ defmodule Wiretap.Session do
       interval_ms: Keyword.get(opts, :interval_ms, 1_000),
       max_events: Keyword.get(opts, :max_events, 1_000),
       max_duration_ms: Keyword.get(opts, :max_duration_ms, 60_000),
+      telemetry: Keyword.get(opts, :telemetry, []),
+      log_file: Keyword.get(opts, :log_file, Application.get_env(:wiretap, :log_file)),
       started_at: System.monotonic_time()
     }
   end

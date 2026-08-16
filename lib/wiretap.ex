@@ -22,7 +22,10 @@ defmodule Wiretap do
   expires it.
 
   Options: `:name`, `:interval_ms` (default 1000), `:max_events` (default
-  1000), `:max_duration_ms` (default 60_000).
+  1000), `:max_duration_ms` (default 60_000), `:telemetry` (host telemetry
+  event names to bridge into the timeline, e.g. `[[:my_app, :repo, :query]]`),
+  `:log_file` (append captured events to this file — one grep-able line per
+  event; add it to .gitignore).
 
       {:ok, session} = Wiretap.watch(MyApp.PubSub, interval_ms: 250)
       # ... exercise the app ...
