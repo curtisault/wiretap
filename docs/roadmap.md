@@ -10,7 +10,7 @@
 | Release | Contents | Status |
 |---|---|---|
 | **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ✅ shipped |
-| **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | ⬜ not started |
+| **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | 🟨 in progress |
 | **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ⬜ not started |
 | **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ⬜ not started |
 | **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | ⬜ not started |
@@ -42,17 +42,17 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 ## v0.1 — Headless core + Roll Call
 
-- [ ] `Wiretap.Snapshot`: `Registry.select` snapshots, diffing, pid labeling
+- [x] `Wiretap.Snapshot`: `Registry.select` snapshots, diffing, pid labeling
       (label policy per discovery A9), startup shape-probe with loud graceful
-      degradation (A1)
-- [ ] `Wiretap.Session` / `Wiretap.SessionManager`: lifecycle, budgets, guaranteed
+      degradation (A1) *(loud wiring lands with SessionManager)*
+- [x] `Wiretap.Session` / `Wiretap.SessionManager`: lifecycle, budgets, guaranteed
       teardown (traps exits, never auto-resumes)
-- [ ] `Wiretap.Collector`: ETS ring buffer, `%Wiretap.Event{}` normalization —
+- [x] `Wiretap.Collector`: ETS ring buffer, `%Wiretap.Event{}` normalization —
       designed for heterogeneous sources from day one
-- [ ] `Wiretap.PubSub` own instance for UI nudges (never the host's)
-- [ ] Wiretap's own telemetry events (A3): session start/stop/expired, budget exhausted
-- [ ] ExUnit helpers: `Wiretap.Snapshot.topics/1` etc. as assertion primitives
-- [ ] LiveDashboard Roll Call page (frozen scope per discovery B1: read-only teaser, permanent)
+- [x] `Wiretap.PubSub` own instance for UI nudges (never the host's)
+- [x] Wiretap's own telemetry events (A3): session start/stop/expired, budget exhausted
+- [x] ExUnit helpers: `Wiretap.Test` assertion primitives (assert/refute_subscribed, assert_no_subscribers)
+- [x] LiveDashboard Roll Call page (frozen scope per discovery B1: read-only teaser, permanent)
 - [ ] Dogfood: the origin project's test suite replaces its hand-rolled
       `Registry.keys/2` helper via path dep, lives with it a sprint (discovery C9) —
       **gates hex publish**
