@@ -1,9 +1,12 @@
 defmodule WiretapTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
-  doctest Wiretap
+  test "public API delegates to Snapshot" do
+    pubsub = :"pubsub_#{System.unique_integer([:positive])}"
+    start_supervised!({Phoenix.PubSub, name: pubsub})
 
-  test "greets the world" do
-    assert Wiretap.hello() == :world
+    assert Wiretap.snapshot(pubsub) == %{}
+    assert Wiretap.topics(pubsub) == []
+    assert Wiretap.subscribers(pubsub, "station:jazz") == []
   end
 end
