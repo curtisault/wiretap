@@ -11,7 +11,7 @@
 |---|---|---|
 | **v0.0** | Project bootstrap, tooling baseline, dev harness, spikes | ✅ shipped |
 | **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | 🟨 in progress |
-| **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ⬜ not started |
+| **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | 🟨 in progress |
 | **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ⬜ not started |
 | **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | ⬜ not started |
 | **v1.0** | Production profile, docs site, multi-node spike | ⬜ not started |
@@ -60,22 +60,22 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 ## v0.2 — Timeline + standalone endpoint
 
-- [ ] `Wiretap.TelemetryBridge` (§4.1): attach any telemetry event into the session timeline
-- [ ] `Wiretap.Probe` macro (§4.4): compile-time gated, `:ok` outside dev
-- [ ] Process monitors generalized (§4.3): UI never renders a dead pid as alive
-- [ ] Timeline backend from snapshot diffs + telemetry + probes + `:DOWN`s
+- [x] `Wiretap.TelemetryBridge` (§4.1): attach any telemetry event into the session timeline
+- [x] `Wiretap.Probe` macro (§4.4): compile-time gated, `:ok` unless the host opts in
+- [x] Process monitors generalized (§4.3): UI never renders a dead pid as alive
+- [x] Timeline backend from snapshot diffs + telemetry + probes + `:DOWN`s
       (honesty label per A4 spike results: "approximate until L2 armed")
-- [ ] `Wiretap.Endpoint` on :4008, dev-only, precompiled assets, dark mode (B8)
-- [ ] Roll Call panel: prefix-collapsed topic tree, filter box, subscriber-count sort (B4)
-- [ ] Timeline panel: follow mode, batched re-renders, dropped-events counter (B3)
-- [ ] Empty states as first-class answers, esp. "nobody is listening to X" (B6)
-- [ ] File log sink: opt-in option to append session events to `wiretap.log` at the
+- [x] `Wiretap.Endpoint` on :4008, dev-only, precompiled assets, dark mode (B8)
+- [x] Roll Call panel: prefix-collapsed topic tree, filter box, subscriber-count sort (B4)
+- [x] Timeline panel: follow mode, batched re-renders, dropped-events counter (B3)
+- [x] Empty states as first-class answers, esp. "nobody is listening to X" (B6)
+- [x] File log sink: opt-in option to append session events to `wiretap.log` at the
       project root, so users can review a full capture offline (and gitignore it).
       Off by default (idle = free); enabled per session or via
       `config :wiretap, log_file: "wiretap.log"`; one human-readable event per line
       with a session-start header; same truncated payload previews as the UI (§8.6);
       docs recommend adding `wiretap.log` to `.gitignore`
-- [ ] Headless parity: documented public function per panel interaction (B9)
+- [x] Headless parity: documented public function per panel interaction (B9)
 
 ## v0.3 — Tracer (Layer 2)
 
