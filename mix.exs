@@ -47,9 +47,16 @@ defmodule Wiretap.MixProject do
       {:phoenix_pubsub, "~> 2.1"},
       {:telemetry, "~> 1.2"},
 
-      # Optional UI integration — hosts that run LiveDashboard get the Roll
-      # Call page; headless installs stay lean (§7).
+      # Optional UI integration (§7) — headless installs stay lean. The
+      # LiveDashboard page and the standalone endpoint light up only when the
+      # host has these.
       {:phoenix_live_dashboard, "~> 0.8", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
+      {:phoenix_live_view, "~> 1.0", optional: true},
+      {:bandit, "~> 1.5", optional: true},
+
+      # Test-only: LiveViewTest's DOM engine for the UI panel tests.
+      {:lazy_html, ">= 0.1.0", only: :test},
 
       # Quality tooling (dev/test only).
       {:styler, "~> 1.2", only: [:dev, :test], runtime: false},

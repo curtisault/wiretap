@@ -62,3 +62,6 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+# Wiretap standalone UI (dev-only): http://localhost:4008
+config :wiretap, ui: [port: 4008, pubsub: Harness.PubSub]

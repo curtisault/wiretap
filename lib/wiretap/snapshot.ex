@@ -70,6 +70,59 @@ defmodule Wiretap.Snapshot do
     end
   end
 
+  @typedoc "A roll-call row."
+  @type roll_call_row :: %{topic: topic(), subscribers: non_neg_integer(), pids: [String.t()]}
+
+  @typedoc "A roll-call group (single-level prefix grouping, discovery B4)."
+  @type roll_call_group :: %{
+          label: String.t(),
+          prefix: String.t() | nil,
+          subscribers: non_neg_integer(),
+          topics: [roll_call_row()]
+        }
+
+  @doc """
+  Grouped roll call: `roll_call(pubsub, group: ":")` groups topics sharing a
+  first `":"`-segment (when the group has ≥ 2 members) into
+  `%{label: "station:*", …}` entries; singletons stay flat. Groups and their
+  topics sort by subscriber count, descending.
+  """
+  @spec roll_call(pubsub(), keyword()) :: [roll_call_group()]
+  def roll_call(pubsub, opts) do
+    group(roll_call(pubsub), Keyword.fetch!(opts, :group))
+  end
+
+  @doc "Groups roll-call rows by first prefix segment. Pure; see `roll_call/2`."
+  @spec group([roll_call_row()], String.t()) :: [roll_call_group()]
+  def group(rows, separator) do
+    rows
+    |> Enum.group_by(fn row ->
+      case String.split(row.topic, separator, parts: 2) do
+        [prefix, _rest] -> prefix
+        [_no_separator] -> nil
+      end
+    end)
+    |> Enum.flat_map(fn
+      {nil, singles} -> Enum.map(singles, &singleton_group/1)
+      {_prefix, [single]} -> [singleton_group(single)]
+      {prefix, members} -> [prefix_group(prefix, separator, members)]
+    end)
+    |> Enum.sort_by(& &1.subscribers, :desc)
+  end
+
+  defp singleton_group(row) do
+    %{label: row.topic, prefix: nil, subscribers: row.subscribers, topics: [row]}
+  end
+
+  defp prefix_group(prefix, separator, members) do
+    %{
+      label: prefix <> separator <> "*",
+      prefix: prefix,
+      subscribers: members |> Enum.map(& &1.subscribers) |> Enum.sum(),
+      topics: Enum.sort_by(members, & &1.subscribers, :desc)
+    }
+  end
+
   @doc """
   Diffs two snapshots into `:joined` / `:left` edges.
 
