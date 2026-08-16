@@ -1,0 +1,83 @@
+# baraddur config — see https://github.com/curtisault/baraddur#config
+
+[watch]
+extensions = ["ex", "exs", "heex"]
+debounce_ms = 1000
+ignore = ["_build", "deps", ".git", ".baraddur"]
+
+# [output]
+# clear_screen = true    # clear the terminal between runs
+# show_passing = false   # hide stdout/stderr from passing steps
+
+# [on_failure]            # optional: run a command after a failing run
+# enabled = false         # set true to activate
+# cmd = ""                # receives combined failed output on stdin
+# prompt = ""             # optional preamble prepended to stdin
+# timeout_secs = 30
+
+# A bare run executes every step (including dialyzer). Use `--profile dev`
+# for the everyday save loop.
+[profiles]
+quick = ["format", "compile"]
+dev = ["format", "compile", "credo", "test"]
+full = ["format", "compile", "credo", "test", "deps.audit", "hex.audit", "deps.unused", "dialyzer"]
+
+[[steps]]
+name = "format"
+cmd = "mix format --check-formatted"
+parallel = false
+
+[[steps]]
+name = "compile"
+cmd = "mix compile --warnings-as-errors"
+parallel = false
+
+[[steps]]
+name = "credo"
+cmd = "mix credo --all"
+parallel = true
+
+[[steps]]
+name = "test"
+cmd = "mix test"
+parallel = true
+
+# Dependency checks only need to run when deps change.
+[[steps]]
+name = "deps.audit"
+cmd = "mix deps.audit"
+parallel = true
+if_changed = ["mix.exs", "mix.lock"]
+
+[[steps]]
+name = "hex.audit"
+cmd = "mix hex.audit"
+parallel = true
+if_changed = ["mix.exs", "mix.lock"]
+
+[[steps]]
+name = "deps.unused"
+cmd = "mix deps.unlock --check-unused"
+parallel = true
+if_changed = ["mix.exs", "mix.lock"]
+
+# Slow even with a warm PLT (first run builds it and takes minutes) — reach
+# it via `--profile full` or a bare run, not the everyday loop.
+[[steps]]
+name = "dialyzer"
+cmd = "mix dialyzer"
+parallel = true
+
+# Docs coverage (doctor is in deps). Enable once modules have @moduledoc/@doc,
+# then add it to the `full` profile.
+# [[steps]]
+# name = "doctor"
+# cmd = "mix doctor"
+# parallel = true
+
+# Security scan — sobelow targets Phoenix apps; enable when lib/wiretap/ui
+# ships LiveView code (roadmap v0.5+).
+# [[steps]]
+# name = "sobelow"
+# cmd = "mix sobelow --exit"
+# parallel = true

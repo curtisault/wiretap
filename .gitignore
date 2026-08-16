@@ -26,3 +26,6 @@ wiretap-*.tar
 # Dialyzer PLTs
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
+
+# baraddur watcher state/logs
+/.baraddur/
