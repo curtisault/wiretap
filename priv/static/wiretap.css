@@ -180,3 +180,30 @@ input[type="text"]:focus, select:focus { outline: 1px solid var(--accent); }
 .wt-preview { flex-basis: 100%; font-size: 0.85em; }
 
 .wt-kind-call { color: #b48ead; }
+
+.wt-clickable { cursor: pointer; }
+
+.wt-modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 50; }
+.wt-modal-backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 0.55); cursor: pointer; }
+
+.wt-modal-box {
+  position: relative;
+  z-index: 1;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.25rem;
+  max-width: 42rem;
+  width: 92%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.wt-modal-box h3 { margin: 0 0 0.75rem; }
+
+.wt-detail { border-collapse: collapse; }
+.wt-detail td { padding: 0.15rem 0.75rem 0.15rem 0; vertical-align: top; }
+.wt-detail td:first-child { color: var(--dim); white-space: nowrap; }
+.wt-detail pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+.wt-headless-hint { font-size: 0.85em; margin: 0.75rem 0; }

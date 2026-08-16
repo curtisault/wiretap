@@ -61,6 +61,8 @@ defmodule Wiretap.UITest do
       end
   end
 
+  defp eventually_value(fun), do: eventually(fun)
+
   describe "Snapshot.group/2 (headless twin of the Roll Call tree)" do
     test "groups prefixed topics, keeps singletons flat, sorts by subscribers" do
       rows = [
@@ -131,6 +133,39 @@ defmodule Wiretap.UITest do
 
       html = view |> element("button", "stop") |> render_click()
       assert html =~ "stopped"
+    end
+
+    test "clicking a row opens the full-event inspector", %{conn: conn, pubsub: pubsub} do
+      {:ok, session} = Wiretap.watch(pubsub, trace: true)
+      listener = subscribe(pubsub, "station:jazz")
+
+      joined =
+        eventually_value(fn ->
+          event =
+            Enum.find(Wiretap.events(session), &(&1.kind == :joined and &1.pid == listener))
+
+          assert event
+          event
+        end)
+
+      {:ok, view, _html} = live(conn, "/timeline?session=#{session}")
+
+      html =
+        view
+        |> element(".wt-row[phx-value-seq='#{joined.seq}']")
+        |> render_click()
+
+      assert html =~ "event ##{joined.seq} — joined"
+      assert html =~ "station:jazz"
+      assert html =~ "caller:"
+      # pids render HTML-escaped
+      assert html =~ String.replace(inspect(listener), ["<", ">"], &%{"<" => "&lt;", ">" => "&gt;"}[&1])
+      assert html =~ "headless twin"
+
+      html = view |> element(".wt-modal-box button", "close") |> render_click()
+      refute html =~ "headless twin"
+
+      Wiretap.stop(session)
     end
 
     test "the arm form previews attachments and starts a plain session",
