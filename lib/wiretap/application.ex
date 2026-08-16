@@ -1,6 +1,4 @@
 defmodule Wiretap.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -8,13 +6,14 @@ defmodule Wiretap.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: Wiretap.Worker.start_link(arg)
-      # {Wiretap.Worker, arg}
+      {Registry, keys: :unique, name: Wiretap.Registry},
+      {Phoenix.PubSub, name: Wiretap.PubSub},
+      {DynamicSupervisor, name: Wiretap.SessionSupervisor, strategy: :one_for_one},
+      Wiretap.SessionManager
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Wiretap.Supervisor]
-    Supervisor.start_link(children, opts)
+    # Idle = free (§8.1): nothing here polls, traces, or subscribes to host
+    # topics. Pollers exist only while a session is running.
+    Supervisor.start_link(children, strategy: :one_for_one, name: Wiretap.Supervisor)
   end
 end
