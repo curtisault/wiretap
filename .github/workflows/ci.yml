@@ -31,7 +31,7 @@ jobs:
       - run: mix format --check-formatted
       - run: mix deps.unlock --check-unused
       - run: mix credo --strict
-      - run: mix sobelow --exit low
+      - run: mix sobelow --config
       - run: mix hex.audit
       - run: mix deps.audit
       - run: mix hex.build
