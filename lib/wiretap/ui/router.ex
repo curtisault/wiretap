@@ -19,6 +19,7 @@ if Code.ensure_loaded?(Phoenix.LiveView.Router) do
 
       live("/", RollCallLive)
       live("/timeline", TimelineLive)
+      live("/docs", DocsLive)
     end
   end
 end

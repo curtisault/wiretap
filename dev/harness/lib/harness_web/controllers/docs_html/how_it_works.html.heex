@@ -87,8 +87,16 @@
               <td>Wiretap.Test.assert_subscribed/refute_subscribed</td>
             </tr>
             <tr>
-              <td>Standalone UI (:4008) Roll Call + Timeline</td>
+              <td>Standalone UI (:4008) Roll Call + Timeline + Docs</td>
               <td>Wiretap.Snapshot.roll_call/2 · Wiretap.events/1 · watch/2 trace: true</td>
+            </tr>
+            <tr>
+              <td>Row inspectors (transmissions here; Timeline rows in the Wiretap UI)</td>
+              <td>Wiretap.events/1, find by seq — each modal shows its headless twin</td>
+            </tr>
+            <tr>
+              <td>Sessions card "exact (call tracing)" toggle</td>
+              <td>Wiretap.watch(Harness.PubSub, trace: true)</td>
             </tr>
           </tbody>
         </table>

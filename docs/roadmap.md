@@ -18,6 +18,12 @@
 
 Statuses: ⬜ not started · 🟨 in progress · ✅ shipped
 
+**Docs-currency policy (2026-08-16):** the in-app documentation — the Wiretap UI's
+`/docs` page (host-agnostic, ships with the library) and the harness's `/docs` page
+(explains the demo) — are release deliverables. Every release checklist below carries
+a docs-currency item; a feature is not done while either page still describes the
+previous release.
+
 ---
 
 ## v0.0 — Bootstrap and de-risking (pre-release)
@@ -98,6 +104,7 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 - [ ] Process Inspector (4.2): `:sys.install` hooks, auto-remove on session end,
       `$ancestors`/`$callers` chains in detail pane only (A9)
 - [ ] Drill-down IA complete: Roll Call → Timeline → Inspector/Wiretap funnel (B2)
+- [ ] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v0.4 changes
 
 ## v1.0 — Production-possible
 
@@ -106,3 +113,4 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 - [ ] Docs site, README with panel table, `groups_for_modules` by layer
 - [ ] Multi-node research spike: `:erpc` fan-in, Redis-adapter story (A7 findings)
 - [ ] Coverage/doc gates at final thresholds (doctor, excoveralls minimums)
+- [ ] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v1.0 changes
