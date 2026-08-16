@@ -76,6 +76,7 @@ defmodule Wiretap.SessionManager do
     session = Session.new(pubsub, opts)
 
     with :ok <- TelemetryBridge.validate(session.telemetry),
+         :ok <- validate_trace(session),
          :ok <- probe_loudly(pubsub),
          {:ok, sup} <- start_session_tree(session) do
       tab = Collector.table(session.name)
@@ -124,10 +125,10 @@ defmodule Wiretap.SessionManager do
     end
   end
 
-  def handle_info({:budget_exhausted, name, :max_events}, state) do
+  def handle_info({:budget_exhausted, name, bound}, state) when bound in [:max_events, :max_rate] do
     case state.sessions do
       %{^name => entry} ->
-        emit_budget_exhausted(entry, :max_events, entry.session.max_events)
+        emit_budget_exhausted(entry, bound, Map.fetch!(entry.session, bound))
         {:noreply, finish(state, name, entry, :expired)}
 
       _ ->
@@ -174,15 +175,19 @@ defmodule Wiretap.SessionManager do
     end
   end
 
+  # A traced session runs the Tracer INSTEAD of the Snapshotter: exact events,
+  # tracer-owned monitors, no polling at all.
   defp start_session_tree(session) do
+    children =
+      [{Collector, session}] ++
+        if(session.trace,
+          do: [{Wiretap.Tracer, session}],
+          else: [{Wiretap.Snapshotter, session}]
+        )
+
     spec = %{
       id: {:wiretap_session, session.name},
-      start:
-        {Supervisor, :start_link,
-         [
-           [{Collector, session}, {Wiretap.Snapshotter, session}],
-           [strategy: :one_for_all, max_restarts: 0]
-         ]},
+      start: {Supervisor, :start_link, [children, [strategy: :one_for_all, max_restarts: 0]]},
       restart: :temporary,
       type: :supervisor
     }
@@ -190,8 +195,32 @@ defmodule Wiretap.SessionManager do
     DynamicSupervisor.start_child(Wiretap.SessionSupervisor, spec)
   end
 
+  defp validate_trace(%Session{trace: false}), do: :ok
+
+  defp validate_trace(%Session{trace: %{mfas: mfas}}) do
+    cond do
+      not Wiretap.Tracer.available?() ->
+        Logger.warning("Wiretap: layer 2 needs OTP trace sessions (OTP 27+); refusing to start session")
+
+        {:error, :trace_sessions_unavailable}
+
+      not Enum.all?(mfas, &valid_mfa?/1) ->
+        {:error, :invalid_trace_mfa}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp valid_mfa?({m, f, a}) when is_atom(m) and is_atom(f) and is_integer(a) and a >= 0 do
+    Code.ensure_loaded?(m) and function_exported?(m, f, a)
+  end
+
+  defp valid_mfa?(_other), do: false
+
   defp attachments(session) do
     [:snapshot] ++
+      if(session.trace, do: [:trace], else: []) ++
       if(session.telemetry == [], do: [], else: [:telemetry]) ++
       if(session.log_file, do: [:log_file], else: [])
   end

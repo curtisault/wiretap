@@ -17,7 +17,9 @@ defmodule Wiretap.Session do
     interval_ms: 1_000,
     max_events: 1_000,
     max_duration_ms: 60_000,
+    max_rate: 250,
     telemetry: [],
+    trace: false,
     status: :running
   ]
 
@@ -31,9 +33,14 @@ defmodule Wiretap.Session do
           interval_ms: pos_integer(),
           max_events: pos_integer(),
           max_duration_ms: pos_integer(),
+          max_rate: pos_integer(),
           telemetry: [[atom()]],
+          trace: false | trace_opts(),
           status: status()
         }
+
+  @typedoc "Normalized layer-2 tracing options."
+  @type trace_opts :: %{prefixes: [String.t()], mfas: [mfa()]}
 
   @doc """
   Builds a session for `pubsub`.
@@ -43,7 +50,9 @@ defmodule Wiretap.Session do
   `:max_events` (default 1000), `:max_duration_ms` (default 60_000),
   `:telemetry` (host telemetry event names to bridge into the session),
   `:log_file` (append events to this file; defaults to
-  `config :wiretap, :log_file`).
+  `config :wiretap, :log_file`), `:max_rate` (events/sec before auto-expiry,
+  default 250), `:trace` (`true` or `[prefixes: [...], mfas: [...]]` — arm
+  layer-2 call tracing for exact events with caller attribution).
   """
   @spec new(atom(), keyword()) :: t()
   def new(pubsub, opts \\ []) do
@@ -53,10 +62,34 @@ defmodule Wiretap.Session do
       interval_ms: Keyword.get(opts, :interval_ms, 1_000),
       max_events: Keyword.get(opts, :max_events, 1_000),
       max_duration_ms: Keyword.get(opts, :max_duration_ms, 60_000),
+      max_rate: Keyword.get(opts, :max_rate, 250),
       telemetry: Keyword.get(opts, :telemetry, []),
+      trace: normalize_trace(Keyword.get(opts, :trace, false)),
       log_file: Keyword.get(opts, :log_file, Application.get_env(:wiretap, :log_file)),
       started_at: System.monotonic_time()
     }
+  end
+
+  @doc "Milliseconds until the duration budget expires a running session (0 when finished)."
+  @spec remaining_ms(t()) :: non_neg_integer()
+  def remaining_ms(%__MODULE__{status: :running} = session) do
+    elapsed =
+      System.convert_time_unit(
+        System.monotonic_time() - session.started_at,
+        :native,
+        :millisecond
+      )
+
+    max(session.max_duration_ms - elapsed, 0)
+  end
+
+  def remaining_ms(%__MODULE__{}), do: 0
+
+  defp normalize_trace(false), do: false
+  defp normalize_trace(true), do: %{prefixes: [], mfas: []}
+
+  defp normalize_trace(opts) when is_list(opts) do
+    %{prefixes: Keyword.get(opts, :prefixes, []), mfas: Keyword.get(opts, :mfas, [])}
   end
 
   # Random rather than a VM counter so names stay unique across restarts
