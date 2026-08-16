@@ -86,6 +86,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.subscribers/2 + Wiretap.Snapshot.label/1 (cross-topic view from snapshot/1)</td>
               </tr>
               <tr>
+                <td>Sessions tab (overview; click a row for its timeline)</td>
+                <td>Wiretap.sessions/0</td>
+              </tr>
+              <tr>
                 <td>Arm form, "trace (exact events)"</td>
                 <td>Wiretap.watch(pubsub, trace: true) — or [prefixes: [...], mfas: [...]]</td>
               </tr>

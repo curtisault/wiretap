@@ -45,6 +45,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
         <nav>
           <.link navigate="/" class={@active == :roll_call && "active"}>Roll Call</.link>
           <.link navigate="/timeline" class={@active == :timeline && "active"}>Timeline</.link>
+          <.link navigate="/sessions" class={@active == :sessions && "active"}>Sessions</.link>
           <.link navigate="/docs" class={@active == :docs && "active"}>Docs</.link>
         </nav>
         <button class="wt-theme" title="toggle theme" onclick="wiretapToggleTheme()">◐</button>
