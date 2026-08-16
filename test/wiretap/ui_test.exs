@@ -114,6 +114,18 @@ defmodule Wiretap.UITest do
     end
   end
 
+  describe "Docs panel" do
+    test "renders the host-agnostic library docs", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/docs")
+
+      assert html =~ "How wiretap works"
+      assert html =~ "YOUR APP — unmodified"
+      assert html =~ "Every panel is a public function"
+      assert html =~ "max_rate"
+      assert html =~ "The safety contract"
+    end
+  end
+
   describe "Timeline panel" do
     test "streams a session's events with honesty markers and controls",
          %{conn: conn, pubsub: pubsub} do
