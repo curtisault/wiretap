@@ -1,36 +1,53 @@
 <Layouts.app flash={@flash}>
-  <div class="space-y-6 py-10">
-    <h1 class="text-3xl font-bold">Wiretap harness</h1>
-    <p class="opacity-80">
-      A host Phoenix app for developing and demoing the wiretap library — it generates real
-      Phoenix.PubSub traffic (including the bug classes wiretap exists to catch) and never
-      knows it is being observed.
-    </p>
+  <div class="space-y-10 py-8">
+    <div class="space-y-2">
+      <h1 class="text-4xl font-bold">Wiretap harness</h1>
+      <p class="opacity-80 max-w-2xl">
+        A host Phoenix app for developing and demoing the wiretap library — it generates real
+        Phoenix.PubSub traffic (including the bug classes wiretap exists to catch) and never
+        knows it is being observed.
+      </p>
+    </div>
 
-    <ul class="grid gap-4 lg:grid-cols-2 items-start">
-      <li class="rounded border p-4 space-y-1">
-        <a href="/demo" class="link font-semibold">ATC console</a>
-        <p class="text-sm opacity-70">
-          Track flights that enter and land on their own (topics that come and go), leak
-          subscriptions on purpose, check the registry truth, and run capture sessions —
-          all on one page.
+    <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <a
+        href="/demo"
+        class="block rounded-2xl border-2 p-8 space-y-3 hover:border-primary hover:shadow-lg transition"
+      >
+        <div class="text-5xl">🛫</div>
+        <h2 class="text-2xl font-bold">ATC console</h2>
+        <p class="opacity-70">
+          Track flights that enter and land on their own, leak subscriptions on purpose,
+          inspect received transmissions, check the registry truth, and run capture
+          sessions — all on one page.
         </p>
-      </li>
-      <li class="rounded border p-4 space-y-1">
-        <a href="/dashboard/wiretap" class="link font-semibold">Roll Call (LiveDashboard)</a>
-        <p class="text-sm opacity-70">
-          Wiretap's LiveDashboard page: every topic on Harness.PubSub with subscriber counts
-          and labeled pids, searchable and sortable. Open it next to the console and watch
-          the topic list churn.
-        </p>
-      </li>
-    </ul>
+      </a>
 
-    <div class="rounded border p-4 space-y-1">
-      <h2 class="font-semibold">Headless, from iex</h2>
-      <pre class="font-mono text-sm overflow-x-auto" phx-no-curly-interpolation><code>{:ok, s} = Wiretap.watch(Harness.PubSub, interval_ms: 250)
-Wiretap.events(s)
-Wiretap.snapshot(Harness.PubSub)</code></pre>
+      <a
+        href="/docs"
+        class="block rounded-2xl border-2 p-8 space-y-3 hover:border-primary hover:shadow-lg transition"
+      >
+        <div class="text-5xl">📖</div>
+        <h2 class="text-2xl font-bold">How it works</h2>
+        <p class="opacity-70">
+          A flowchart of how the library attaches to this harness from the outside, what
+          each demo surface calls, session budgets and lifecycle, and a 60-second
+          leak-reproduction walkthrough.
+        </p>
+      </a>
+
+      <a
+        href="/dashboard/wiretap"
+        class="block rounded-2xl border-2 p-8 space-y-3 hover:border-primary hover:shadow-lg transition"
+      >
+        <div class="text-5xl">📋</div>
+        <h2 class="text-2xl font-bold">Roll Call</h2>
+        <p class="opacity-70">
+          Wiretap's LiveDashboard page: every topic on Harness.PubSub with subscriber
+          counts and labeled pids, searchable and sortable. Open it next to the console
+          and watch the topic list churn.
+        </p>
+      </a>
     </div>
   </div>
 </Layouts.app>
