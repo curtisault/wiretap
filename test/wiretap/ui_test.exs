@@ -137,6 +137,46 @@ defmodule Wiretap.UITest do
     end
   end
 
+  describe "session list freshness" do
+    test "a session started elsewhere appears in an already-open Timeline",
+         %{conn: conn, pubsub: pubsub} do
+      {:ok, view, _html} = live(conn, "/timeline")
+
+      # started from anywhere else on the node (e.g. the harness demo card)
+      {:ok, session} = Wiretap.watch(pubsub, trace: true)
+
+      eventually(fn -> assert render(view) =~ session end)
+
+      Wiretap.stop(session)
+    end
+  end
+
+  describe "Sessions tab" do
+    test "lists every session with status and mode; a row opens its timeline",
+         %{conn: conn, pubsub: pubsub} do
+      {:ok, traced} = Wiretap.watch(pubsub, trace: true)
+      {:ok, plain} = Wiretap.watch(pubsub)
+      :ok = Wiretap.stop(plain)
+
+      {:ok, view, html} = live(conn, "/sessions")
+
+      assert html =~ traced
+      assert html =~ plain
+      assert html =~ "exact"
+      assert html =~ "≈ snapshot"
+      assert html =~ "stopped"
+      assert html =~ "headless twin: Wiretap.sessions()"
+
+      view
+      |> element("tr[phx-value-session='#{traced}']")
+      |> render_click()
+
+      assert_redirect(view, "/timeline?session=#{traced}")
+
+      Wiretap.stop(traced)
+    end
+  end
+
   describe "Docs panel" do
     test "renders the host-agnostic library docs", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/docs")
