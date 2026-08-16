@@ -70,6 +70,7 @@ defmodule HarnessWeb.Layouts do
   defp demo_pages do
     [
       {"ATC console", "/demo"},
+      {"How it works", "/docs"},
       {"Roll Call (LiveDashboard)", "/dashboard/wiretap"}
     ]
   end

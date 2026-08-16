@@ -1,0 +1,154 @@
+<Layouts.app flash={@flash}>
+  <div class="space-y-8 max-w-4xl">
+    <div class="space-y-2">
+      <h1 class="text-3xl font-bold">How Wiretap works</h1>
+      <p class="opacity-80">
+        The harness is an ordinary Phoenix app that never knows it is being observed.
+        Wiretap attaches from outside — read-only toward the host — and every panel in the
+        <a href="/demo" class="link">ATC console</a>
+        maps to a public library call.
+      </p>
+    </div>
+
+    <div class="rounded border p-4 space-y-2">
+      <h2 class="font-semibold">The flow</h2>
+      <pre class="font-mono text-xs leading-snug overflow-x-auto" phx-no-curly-interpolation>
+┌────────────────────────────────────────────────────────────────────────┐
+│ HARNESS — unmodified host app                                          │
+│                                                                        │
+│   Harness.Tower ────── broadcast ─────▶ Phoenix.PubSub                 │
+│   flights enter, transmit               (Harness.PubSub)               │
+│   positions every 2s, land              "flight:WT-101", "atc:events"  │
+│                                                │                       │
+│                                                ▼                       │
+│                                     Registry (duplicate-key ETS)       │
+│                                     topic ──▶ [subscriber pids]        │
+│                                                ▲                       │
+│   HarnessWeb.DemoLive ── subscribe/unsubscribe ┘                       │
+│     track a flight   = subscribe("flight:WT-101")                      │
+│     hand off         = unsubscribe (clean path)                        │
+│     walk off shift   = no unsubscribe — the LEAK                       │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │  Registry.select/2 — reads only,
+                               │  from outside, zero host changes
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ WIRETAP — the library under demonstration                              │
+│                                                                        │
+│   Wiretap.Snapshot ── take/1 ──▶ topic → [pids]   (layer 1)            │
+│         │                                                              │
+│         │ diff/2: what changed between two snapshots                   │
+│         ▼                                                              │
+│   Wiretap.Snapshotter ── polls per session interval                    │
+│         │   emits :joined / :left events (source: :snapshot)           │
+│         ▼                                                              │
+│   Wiretap.Collector ── per-session ETS ring buffer (10k events)        │
+│         ▲                    heir: SessionManager, so events           │
+│         │                    outlive the session                       │
+│   Wiretap.SessionManager ── budgets (max events / max duration),       │
+│                             teardown on stop/expiry/crash,             │
+│                             telemetry ([:wiretap, ...])                │
+└────────────────────────────────────────────────────────────────────────┘
+      </pre>
+    </div>
+
+    <div class="rounded border p-4 space-y-2">
+      <h2 class="font-semibold">Every demo surface is a public library call</h2>
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Where you see it</th>
+              <th>What it calls</th>
+            </tr>
+          </thead>
+          <tbody class="font-mono text-sm">
+            <tr>
+              <td>Registry truth panel</td>
+              <td>Wiretap.snapshot(Harness.PubSub)</td>
+            </tr>
+            <tr>
+              <td>Wiretap sessions card</td>
+              <td>Wiretap.watch/2 · stop/1 · sessions/0 · events/1</td>
+            </tr>
+            <tr>
+              <td>Roll Call dashboard page</td>
+              <td>Wiretap.Snapshot.roll_call/1 (via Wiretap.DashboardPage)</td>
+            </tr>
+            <tr>
+              <td>Harness LiveView tests</td>
+              <td>Wiretap.Test.assert_subscribed/refute_subscribed</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm opacity-70">
+        The demo's own PubSub traffic deliberately uses plain Phoenix.PubSub — Wiretap's
+        contract is that the host is never modified and pays nothing while the tool is idle.
+      </p>
+    </div>
+
+    <div class="rounded border p-4 space-y-2">
+      <h2 class="font-semibold">Sessions, budgets, and the event pipeline</h2>
+      <p class="text-sm opacity-80">
+        A capture session polls the registry on an interval, diffs consecutive snapshots,
+        and records events. Every session carries budgets — max events and max duration —
+        and hitting either bound expires it automatically. Every event carries two axes:
+        <span class="font-mono">kind</span>
+        (what happened: joined, left) and <span class="font-mono">source</span>
+        (how Wiretap knows: snapshot polling is
+        approximate; exact call-tracing arrives in a later release).
+      </p>
+      <pre class="font-mono text-xs leading-snug overflow-x-auto" phx-no-curly-interpolation>
+   Wiretap.watch/2                     stop/1        budget hit      crash
+        │                                 │               │            │
+        ▼                                 ▼               ▼            ▼
+    [running] ──────────────────────▶ [stopped]      [expired]    [crashed]
+        │                                 └───────────────┴────────────┘
+        │ records :joined / :left                 events remain readable
+        ▼                                         (ring buffer outlives
+    Wiretap.events(session)                        the session)
+      </pre>
+      <p class="text-sm opacity-80">
+        Wiretap also emits telemetry about itself:
+        <span class="font-mono">[:wiretap, :session, :start | :stop]</span>
+        (span convention), <span class="font-mono">[:wiretap, :budget, :exhausted]</span>
+        (the alarm to page on),
+        and <span class="font-mono">[:wiretap, :registry, :incompatible]</span>
+        (shape-probe
+        failure — the library refuses to report wrong data).
+      </p>
+    </div>
+
+    <div class="rounded border p-4 space-y-2">
+      <h2 class="font-semibold">Reproduce a subscription leak in 60 seconds</h2>
+      <ol class="list-decimal list-inside text-sm space-y-1 opacity-90">
+        <li>Open the <a href="/demo" class="link">ATC console</a> and start a wiretap session</li>
+        <li>Click two flights in the Airspace column — registry truth shows both topics</li>
+        <li>
+          Click "walk off shift (leaky)" — your scope reads empty, the leak counter ticks up
+        </li>
+        <li>Registry truth still lists both flight topics: those are the leaks</li>
+        <li>Leaked reports keep arriving in the transmissions feed, badged "leaked" —
+          click one and the modal shows "tracked at receipt: no — leaked delivery"</li>
+        <li>Open <a href="/dashboard/wiretap" class="link">Roll Call</a>: the leaked topics list
+          your LiveView pid as a subscriber</li>
+        <li>Check the session's captured events — the :joined edges have no matching :left</li>
+      </ol>
+    </div>
+
+    <div class="rounded border p-4 space-y-2">
+      <h2 class="font-semibold">Headless, from iex</h2>
+      <pre class="font-mono text-sm overflow-x-auto" phx-no-curly-interpolation><code>iex -S mix phx.server
+
+Wiretap.snapshot(Harness.PubSub)          # topic → subscriber pids, right now
+Wiretap.topics(Harness.PubSub)
+Wiretap.subscribers(Harness.PubSub, "atc:events")
+
+{:ok, s} = Wiretap.watch(Harness.PubSub, interval_ms: 250)
+Wiretap.events(s)                         # joined/left events with pid labels
+Wiretap.sessions()                        # budgets and status
+Wiretap.stop(s)</code></pre>
+    </div>
+  </div>
+</Layouts.app>

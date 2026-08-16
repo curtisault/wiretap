@@ -8,5 +8,6 @@ defmodule HarnessWeb.PageControllerTest do
     assert response =~ "Wiretap harness"
     assert response =~ "ATC console"
     assert response =~ "/dashboard/wiretap"
+    assert response =~ "/docs"
   end
 end

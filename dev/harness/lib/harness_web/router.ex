@@ -20,6 +20,7 @@ defmodule HarnessWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/docs", DocsController, :how_it_works
     live "/demo", DemoLive
 
     live_dashboard "/dashboard",
