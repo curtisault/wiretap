@@ -9,7 +9,9 @@ import Config
 config :harness, HarnessWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
+  # 5555 (wiretap UI on 5556) so the harness can run beside an app under
+  # debug that holds the usual 4000-range ports.
+  http: [ip: {127, 0, 0, 1}, port: 5555],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -63,5 +65,5 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
-# Wiretap standalone UI (dev-only): http://localhost:4008
-config :wiretap, ui: [port: 4008, pubsub: Harness.PubSub]
+# Wiretap standalone UI (dev-only): http://localhost:5556
+config :wiretap, ui: [port: 5556, pubsub: Harness.PubSub]

@@ -143,7 +143,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         <Layouts.empty_state
           :if={@probe == :no_pubsub_configured}
           title="No PubSub configured."
-          body="Tell the UI what to observe: config :wiretap, ui: [port: 4008, pubsub: MyApp.PubSub]"
+          body="Tell the UI what to observe: config :wiretap, ui: [port: 5556, pubsub: MyApp.PubSub]"
         />
 
         <Layouts.empty_state

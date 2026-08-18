@@ -3,7 +3,7 @@ defmodule Wiretap.UI do
   The standalone dev UI (architecture §6 v1): its own endpoint on its own
   port, never touching the host's router, sessions, or auth.
 
-  Opt-in: `config :wiretap, ui: true` (or `[port: 4008, pubsub: MyApp.PubSub]`)
+  Opt-in: `config :wiretap, ui: true` (or `[port: 5556, pubsub: MyApp.PubSub]`)
   starts `Wiretap.UI.Endpoint` — but only when the optional UI deps
   (`phoenix`, `phoenix_live_view`, `bandit`) are present; otherwise one loud
   log line and the app boots headless. `:pubsub` names the instance the Roll
@@ -14,7 +14,7 @@ defmodule Wiretap.UI do
 
   require Logger
 
-  @default_port 4008
+  @default_port 5556
 
   @doc false
   @spec children() :: [module()]

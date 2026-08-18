@@ -139,7 +139,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         <section>
           <h2>Configuration</h2>
           <pre phx-no-curly-interpolation>
-      config :wiretap, ui: [port: 4008, pubsub: MyApp.PubSub]  # this UI (dev only)
+      config :wiretap, ui: [port: 5556, pubsub: MyApp.PubSub]  # this UI (dev only)
       config :wiretap, log_file: "wiretap.log"                 # append events to a file (gitignore it)
       config :wiretap, probes: true                            # compile Wiretap.Probe.tap/2 in (host dev.exs)
           </pre>
