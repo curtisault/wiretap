@@ -54,6 +54,22 @@ defmodule Wiretap do
   @spec events(String.t()) :: [Wiretap.Event.t()]
   defdelegate events(session), to: SessionManager
 
+  @doc """
+  Sends a seq-token-stamped `message` on `topic` and returns the delivery
+  tree: every hop with causal order, per-hop timings, and labels — including
+  second-order hops through relays. Injected by design: wiretap sends the
+  broadcast itself (a token cannot be stamped into another process's sends).
+
+      Wiretap.trace_broadcast(MyApp.PubSub, "orders:42", {:order_updated, 42})
+      #=> {:ok, %{hops: [%{depth: 1, to_label: "LiveView", delta_us: 11, ...}, ...]}}
+
+  An empty `hops` list answers "is it even wired?". Returns
+  `{:error, :foreign_tracer}` if another tool owns the seq_trace tracer.
+  """
+  @spec trace_broadcast(Snapshot.pubsub(), Snapshot.topic(), term(), keyword()) ::
+          {:ok, map()} | {:error, :foreign_tracer}
+  defdelegate trace_broadcast(pubsub, topic, message, opts \\ []), to: Wiretap.SeqTracer
+
   @doc "Snapshot of every subscription: topic → sorted subscriber pids."
   @spec snapshot(Snapshot.pubsub()) :: Snapshot.t()
   defdelegate snapshot(pubsub), to: Snapshot, as: :take

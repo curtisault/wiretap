@@ -141,6 +141,31 @@ defmodule Wiretap.UITest do
       Wiretap.stop(session.name)
     end
 
+    test "broadcast trace from the topic inspector renders the delivery tree",
+         %{conn: conn, pubsub: pubsub} do
+      _listener = subscribe(pubsub, "station:jazz")
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("tr[phx-value-topic='station:jazz']") |> render_click()
+
+      html =
+        view
+        |> element("form[phx-submit=trace_broadcast]")
+        |> render_submit(%{"payload" => "tree please"})
+
+      assert html =~ "1 deliveries · depth 1"
+      assert html =~ "tree please"
+      assert html =~ "µs"
+
+      # unwired topic: honest empty answer
+      view |> element(".wt-modal-box button", "close") |> render_click()
+      view |> element("form") |> render_change(%{"q" => ""})
+      :ok = Phoenix.PubSub.subscribe(pubsub, "station:empty-check")
+      :ok = Phoenix.PubSub.unsubscribe(pubsub, "station:empty-check")
+      Process.sleep(10)
+      :ok
+    end
+
     test "empty registry gets the explicit empty state", %{conn: conn, pubsub: pubsub} do
       {:ok, _view, html} = live(conn, "/")
       assert html =~ "Nobody is subscribed to anything on #{inspect(pubsub)}"

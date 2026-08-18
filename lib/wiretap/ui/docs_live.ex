@@ -94,6 +94,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.watch(pubsub, tap: [pid]) — :message events with payload previews</td>
               </tr>
               <tr>
+                <td>Broadcast Trace (topic inspector → send + trace)</td>
+                <td>Wiretap.trace_broadcast/4 — the stamped delivery tree, relays included</td>
+              </tr>
+              <tr>
                 <td>Arm form, "trace (exact events)"</td>
                 <td>Wiretap.watch(pubsub, trace: true) — or [prefixes: [...], mfas: [...]]</td>
               </tr>
@@ -122,6 +126,14 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             delivered message carries no topic, so taps are per-pid, never
             per-topic — budgets protect. Finished sessions keep their events
             readable — the ring buffer outlives the session.
+          </p>
+          <p>
+            <b>Broadcast Trace</b> maps one broadcast's full delivery tree with causal
+            order and per-hop timings — including second-order hops through relays. It
+            is <b>injected by design</b>: a seq token can only be stamped by the sending
+            process, so wiretap sends the (test) broadcast itself; organic broadcasts
+            cannot be intercepted. One trace at a time node-wide; a foreign seq_trace
+            owner is detected and refused.
           </p>
         </section>
 
