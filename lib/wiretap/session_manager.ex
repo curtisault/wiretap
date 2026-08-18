@@ -77,6 +77,8 @@ defmodule Wiretap.SessionManager do
 
     with :ok <- TelemetryBridge.validate(session.telemetry),
          :ok <- validate_trace(session),
+         :ok <- validate_tap(Keyword.get(opts, :tap, [])),
+         :ok <- validate_payloads(Keyword.get(opts, :payloads, 10_240)),
          :ok <- probe_loudly(pubsub),
          {:ok, sup} <- start_session_tree(session) do
       tab = Collector.table(session.name)
@@ -175,15 +177,17 @@ defmodule Wiretap.SessionManager do
     end
   end
 
-  # A traced session runs the Tracer INSTEAD of the Snapshotter: exact events,
-  # tracer-owned monitors, no polling at all.
+  # A traced session runs the Tracer INSTEAD of the Snapshotter (exact events,
+  # tracer-owned monitors, no polling). A tap-only session runs BOTH: the
+  # Snapshotter keeps the approximate joined/left pipeline while the Tracer
+  # exists solely for :receive tracing on the tapped pids.
   defp start_session_tree(session) do
+    tracer? = session.trace != false or session.tap != []
+
     children =
       [{Collector, session}] ++
-        if(session.trace,
-          do: [{Wiretap.Tracer, session}],
-          else: [{Wiretap.Snapshotter, session}]
-        )
+        if(tracer?, do: [{Wiretap.Tracer, session}], else: []) ++
+        if(session.trace, do: [], else: [{Wiretap.Snapshotter, session}])
 
     spec = %{
       id: {:wiretap_session, session.name},
@@ -218,9 +222,28 @@ defmodule Wiretap.SessionManager do
 
   defp valid_mfa?(_other), do: false
 
+  # Validated from the raw opts (any()-typed), not the struct — the struct's
+  # typespec would make the rejection clauses unreachable to dialyzer.
+  defp validate_tap([]), do: :ok
+
+  defp validate_tap(taps) when is_list(taps) do
+    cond do
+      not Wiretap.Tracer.available?() -> {:error, :trace_sessions_unavailable}
+      Enum.all?(taps, &(is_pid(&1) and Process.alive?(&1))) -> :ok
+      true -> {:error, :invalid_tap_pid}
+    end
+  end
+
+  defp validate_tap(_other), do: {:error, :invalid_tap_pid}
+
+  defp validate_payloads(p) when p in [:off, :unlimited], do: :ok
+  defp validate_payloads(p) when is_integer(p) and p > 0, do: :ok
+  defp validate_payloads(_other), do: {:error, :invalid_payloads_option}
+
   defp attachments(session) do
     [:snapshot] ++
       if(session.trace, do: [:trace], else: []) ++
+      if(session.tap == [], do: [], else: [:tap]) ++
       if(session.telemetry == [], do: [], else: [:telemetry]) ++
       if(session.log_file, do: [:log_file], else: [])
   end

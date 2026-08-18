@@ -43,6 +43,20 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       {:noreply, assign(socket, selected_topic: nil)}
     end
 
+    # B2 funnel: tap a subscriber straight from the topic inspector — starts a
+    # session with :receive tracing on that pid and lands on its Timeline.
+    def handle_event("tap_pid", %{"idx" => idx}, socket) do
+      sub = Enum.at(socket.assigns.selected_topic.subscribers, String.to_integer(idx))
+
+      case sub && Wiretap.watch(socket.assigns.pubsub, tap: [sub.pid]) do
+        {:ok, session} ->
+          {:noreply, push_navigate(socket, to: "/timeline?session=#{session}")}
+
+        _ ->
+          {:noreply, socket}
+      end
+    end
+
     def handle_event("toggle_group", %{"label" => label}, socket) do
       expanded = socket.assigns.expanded
 
@@ -208,7 +222,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
           <table :if={@selected_topic.subscribers != []} class="wt-detail">
             <tbody>
-              <tr :for={sub <- @selected_topic.subscribers}>
+              <tr :for={{sub, idx} <- Enum.with_index(@selected_topic.subscribers)}>
                 <td>{inspect(sub.pid)}</td>
                 <td>
                   {sub.label}
@@ -218,6 +232,17 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                       sub.other_topics
                     )}
                   </div>
+                </td>
+                <td>
+                  <button
+                    :if={sub.alive?}
+                    class="wt-btn"
+                    phx-click="tap_pid"
+                    phx-value-idx={idx}
+                    title="start a session capturing every message this pid receives"
+                  >
+                    tap messages
+                  </button>
                 </td>
               </tr>
             </tbody>

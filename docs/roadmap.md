@@ -98,7 +98,7 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 ## v0.4 — Payloads and fan-out (Layer 3)
 
-- [ ] Wiretap panel (3a): per-pid `:receive` tracing on explicitly selected pids,
+- [x] Wiretap panel (3a): per-pid `:receive` tracing on explicitly selected pids,
       payload capture knob per discovery B7 (off / 10KB / unlimited-dev-only)
 - [ ] Broadcast Trace (3b): seq_trace token stamping, system-tracer ownership +
       request serialization + foreign-tracer detection (per A6 spike)

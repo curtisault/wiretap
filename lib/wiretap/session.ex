@@ -20,6 +20,8 @@ defmodule Wiretap.Session do
     max_rate: 250,
     telemetry: [],
     trace: false,
+    tap: [],
+    payloads: 10_240,
     status: :running
   ]
 
@@ -36,6 +38,8 @@ defmodule Wiretap.Session do
           max_rate: pos_integer(),
           telemetry: [[atom()]],
           trace: false | trace_opts(),
+          tap: [pid()],
+          payloads: :off | pos_integer() | :unlimited,
           status: status()
         }
 
@@ -52,7 +56,10 @@ defmodule Wiretap.Session do
   `:log_file` (append events to this file; defaults to
   `config :wiretap, :log_file`), `:max_rate` (events/sec before auto-expiry,
   default 250), `:trace` (`true` or `[prefixes: [...], mfas: [...]]` — arm
-  layer-2 call tracing for exact events with caller attribution).
+  layer-2 call tracing for exact events with caller attribution), `:tap`
+  (explicitly selected pids whose received messages are captured as
+  `:message` events — layer 3a), `:payloads` (`:off | bytes | :unlimited`,
+  default 10_240 — preview size for tapped messages; §8.6 truncation).
   """
   @spec new(atom(), keyword()) :: t()
   def new(pubsub, opts \\ []) do
@@ -65,6 +72,8 @@ defmodule Wiretap.Session do
       max_rate: Keyword.get(opts, :max_rate, 250),
       telemetry: Keyword.get(opts, :telemetry, []),
       trace: normalize_trace(Keyword.get(opts, :trace, false)),
+      tap: Keyword.get(opts, :tap, []),
+      payloads: Keyword.get(opts, :payloads, 10_240),
       log_file: Keyword.get(opts, :log_file, Application.get_env(:wiretap, :log_file)),
       started_at: System.monotonic_time()
     }

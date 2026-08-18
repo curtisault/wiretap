@@ -223,3 +223,5 @@ input[type="text"]:focus, select:focus { outline: 1px solid var(--accent); }
 .wt-docs li { margin: 0.25rem 0; }
 
 .wt-clickable:hover, tr.wt-clickable:hover td { background: var(--accent-soft); }
+
+.wt-kind-message { color: #64c7d0; }

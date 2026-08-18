@@ -98,6 +98,10 @@
               <td>Sessions card "exact (call tracing)" toggle</td>
               <td>Wiretap.watch(Harness.PubSub, trace: true)</td>
             </tr>
+            <tr>
+              <td>"tap messages" (Wiretap UI topic inspector) — see what a pid hears</td>
+              <td>Wiretap.watch(pubsub, tap: [pid], payloads: 10_240)</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -171,6 +175,10 @@ Wiretap.events(s)                         # joined/left events with pid labels
 
 {:ok, t} = Wiretap.watch(Harness.PubSub, trace: [prefixes: ["flight:"]])
 Wiretap.events(t)                         # exact events with caller attribution
+
+pid = Wiretap.subscribers(Harness.PubSub, "atc:events") |> hd()
+{:ok, w} = Wiretap.watch(Harness.PubSub, tap: [pid])
+Wiretap.events(w)                         # :message events — what that pid hears
 Wiretap.sessions()                        # budgets and status
 Wiretap.stop(s)</code></pre>
     </div>

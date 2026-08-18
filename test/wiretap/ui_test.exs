@@ -124,6 +124,23 @@ defmodule Wiretap.UITest do
       refute html =~ "headless twin"
     end
 
+    test "tap messages from the topic inspector starts a tapping session",
+         %{conn: conn, pubsub: pubsub} do
+      listener = subscribe(pubsub, "station:jazz")
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("tr[phx-value-topic='station:jazz']") |> render_click()
+      view |> element("button", "tap messages") |> render_click()
+
+      session =
+        Enum.find(Wiretap.sessions(), &(&1.status == :running and &1.tap == [listener]))
+
+      assert session, "expected a running session tapping the subscriber"
+      assert_redirect(view, "/timeline?session=#{session.name}")
+
+      Wiretap.stop(session.name)
+    end
+
     test "empty registry gets the explicit empty state", %{conn: conn, pubsub: pubsub} do
       {:ok, _view, html} = live(conn, "/")
       assert html =~ "Nobody is subscribed to anything on #{inspect(pubsub)}"
