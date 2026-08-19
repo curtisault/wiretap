@@ -54,6 +54,9 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       │                    ▼                                             │
       │   Collector ── per-session ring buffer (10k), budgets enforced   │
       │                                                                  │
+      │   layer 3, on demand: tap: [pid] — what a pid hears (:receive)   │
+      │   trace_broadcast/4 — seq_trace fan-out tree · peek/1 — :sys     │
+      │                                                                  │
       │   surfaces: this UI · LiveDashboard page · iex · ExUnit helpers  │
       └──────────────────────────────────────────────────────────────────┘
           </pre>
@@ -180,6 +183,11 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       Wiretap.events(t)                         # caller-attributed events
       Wiretap.sessions()
       Wiretap.stop(t)
+
+      pid = Wiretap.subscribers(MyApp.PubSub, "topic") |> hd()
+      {:ok, w} = Wiretap.watch(MyApp.PubSub, tap: [pid])     # what that pid hears
+      Wiretap.trace_broadcast(MyApp.PubSub, "topic", :ping)  # the fan-out tree
+      Wiretap.peek(pid)                         # :sys state + ancestry
           </pre>
         </section>
 

@@ -13,7 +13,7 @@
 | **v0.1** | Snapshot + diff engine, session manager, test helpers, LiveDashboard Roll Call page, own telemetry | 🟨 in progress |
 | **v0.2** | Telemetry bridge + probe macro, standalone endpoint (Roll Call + Timeline) | ✅ shipped |
 | **v0.3** | Tracer (L2): caller attribution, death-vs-unsubscribe, budgets/auto-expiry | ✅ shipped |
-| **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | 🟨 in progress |
+| **v0.4** | Wiretap panel (3a), Broadcast Trace (3b), Process Inspector (4.2) | ✅ shipped |
 | **v1.0** | Production profile, docs site, multi-node spike | ⬜ not started |
 
 Statuses: ⬜ not started · 🟨 in progress · ✅ shipped
@@ -106,7 +106,7 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 - [x] Process Inspector (4.2): `:sys.install` hooks, auto-remove on session end,
       `$ancestors`/`$callers` chains in detail pane only (A9)
 - [x] Drill-down IA complete: Roll Call → Timeline → Inspector/Wiretap funnel (B2)
-- [ ] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v0.4 changes
+- [x] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v0.4 changes
 
 ## v1.0 — Production-possible
 
