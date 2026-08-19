@@ -71,6 +71,46 @@ defmodule Wiretap.SysInspector do
     end
   end
 
+  @typedoc "Point-in-time process vitals; sizes in bytes (heap words converted)."
+  @type vitals :: %{
+          memory: non_neg_integer(),
+          total_heap_size: non_neg_integer(),
+          message_queue_len: non_neg_integer(),
+          reductions: non_neg_integer(),
+          status: atom()
+        }
+
+  @doc """
+  Point-in-time vitals for any pid — no `:sys` protocol involved, so this
+  works on raw spawns too (the one Inspector reading a non-OTP pid can give).
+
+  Sample it on an interval to see activity: the Inspector pane does exactly
+  that, riding the Roll Call refresh poll — an open pane is sampled once a
+  second, a closed pane costs nothing. Deliberately not a standing emitter
+  process (idle = free).
+  """
+  @spec vitals(pid()) :: {:ok, vitals()} | {:error, :not_alive}
+  def vitals(pid) when is_pid(pid) do
+    keys = [:memory, :total_heap_size, :message_queue_len, :reductions, :status]
+
+    case Process.info(pid, keys) do
+      nil ->
+        {:error, :not_alive}
+
+      info ->
+        words = :erlang.system_info(:wordsize)
+
+        {:ok,
+         %{
+           memory: info[:memory],
+           total_heap_size: info[:total_heap_size] * words,
+           message_queue_len: info[:message_queue_len],
+           reductions: info[:reductions],
+           status: info[:status]
+         }}
+    end
+  end
+
   @doc """
   Starts a live message feed: `receiver` gets `{:wiretap_sys_event, pid,
   event}` for each `:sys` system event on `pid` (a single message can fire

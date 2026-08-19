@@ -85,3 +85,4 @@ Timeline. No new top-level panels.
 | 2026-08-17 | A6 | Broadcast Trace is **injected, not intercepted** — external arming of organic broadcasts is impossible (deviation from §3.3b/§6 recorded); manager-arbitrated singleton, foreign-tracer refusal, injected `trace_broadcast/4` returns the multi-hop causal tree |
 | 2026-08-17 | B7 | `payloads: :off \| bytes \| :unlimited`, default 10KB with `tap:`; :unlimited refused by the future production profile |
 | 2026-08-17 | B2/A9 | Funnel via topic-inspector row actions (tap / inspect); chains full-depth, Inspector-only; "matched no clause" demoted to research |
+| 2026-08-18 | — | **Vitals addendum** (post-close): periodic process vitals ship as an Inspector-pane sample riding the existing 1s refresh — open pane = sampled, closed = free — never a standing emitter process (contract §8.1). `SysInspector.vitals/1` is the headless twin; it needs no `:sys`, so refused raw pids get vitals too |

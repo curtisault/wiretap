@@ -115,8 +115,10 @@
               <td>Wiretap.trace_broadcast(pubsub, topic, msg) — injected stamped broadcast</td>
             </tr>
             <tr>
-              <td>"inspect" (Wiretap UI topic inspector) — :sys state + live message feed</td>
-              <td>Wiretap.peek(pid) · Wiretap.SysInspector.watch_messages(pid)</td>
+              <td>
+                "inspect" (Wiretap UI topic inspector) — :sys state, live feed, sampled vitals
+              </td>
+              <td>Wiretap.peek(pid) · Wiretap.SysInspector.watch_messages(pid) · vitals(pid)</td>
             </tr>
           </tbody>
         </table>

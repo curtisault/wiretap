@@ -196,6 +196,12 @@ defmodule Wiretap.UITest do
       assert html =~ "ancestors"
       assert html =~ "headless twin: Wiretap.peek"
 
+      # vitals sample on open; the refresh poll re-samples and adds the delta
+      assert html =~ "vitals"
+      assert html =~ "reductions"
+      send(view.pid, :refresh)
+      assert render(view) =~ "/s)"
+
       # the live feed: a broadcast lands as a :sys event in the open pane
       Phoenix.PubSub.broadcast(pubsub, "station:jazz", {:now_playing, "Take Five"})
       eventually(fn -> assert render(view) =~ "Take Five" end)
@@ -216,6 +222,8 @@ defmodule Wiretap.UITest do
       html = view |> element("button", "inspect") |> render_click()
       assert html =~ "speak the :sys protocol"
       refute html =~ "initial call"
+      # vitals need no :sys — the refused pid still gets them
+      assert html =~ "vitals"
     end
 
     test "empty registry gets the explicit empty state", %{conn: conn, pubsub: pubsub} do

@@ -107,6 +107,9 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
       `$ancestors`/`$callers` chains in detail pane only (A9)
 - [x] Drill-down IA complete: Roll Call → Timeline → Inspector/Wiretap funnel (B2)
 - [x] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v0.4 changes
+- [x] *(post-close addendum, 2026-08-18)* Process vitals in the Inspector pane:
+      `SysInspector.vitals/1` (any pid, no `:sys`) sampled on the refresh poll only
+      while the pane is open — an emitter-free take on periodic process-info telemetry
 
 ## v1.0 — Production-possible
 

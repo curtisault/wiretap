@@ -24,7 +24,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
          broadcast_tree: nil,
          inspected: nil,
          sys_feed: [],
-         sys_watch: nil
+         sys_watch: nil,
+         vitals: nil
        )
        |> load()}
     end
@@ -32,7 +33,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     @impl true
     def handle_info(:refresh, socket) do
       schedule()
-      {:noreply, load(socket)}
+      {:noreply, socket |> load() |> refresh_vitals()}
     end
 
     # Inspector feed: the SysInspector debug fun forwards :sys events here.
@@ -57,7 +58,30 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         _ -> :ok
       end
 
-      assign(socket, inspected: nil, sys_feed: [], sys_watch: nil)
+      assign(socket, inspected: nil, sys_feed: [], sys_watch: nil, vitals: nil)
+    end
+
+    # Vitals ride the existing 1s refresh: open pane = sampled, closed = free.
+    defp refresh_vitals(%{assigns: %{inspected: %{pid: pid}}} = socket) do
+      assign(socket, vitals: sample_vitals(pid, socket.assigns.vitals))
+    end
+
+    defp refresh_vitals(socket), do: socket
+
+    defp sample_vitals(pid, prev) do
+      case SysInspector.vitals(pid) do
+        {:ok, vitals} ->
+          delta =
+            case prev do
+              %{reductions: r} -> vitals.reductions - r
+              _ -> nil
+            end
+
+          Map.put(vitals, :reductions_delta, delta)
+
+        {:error, :not_alive} ->
+          :gone
+      end
     end
 
     @impl true
@@ -89,11 +113,25 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
               _ -> nil
             end
 
-          {:noreply, assign(socket, inspected: info, sys_feed: [], sys_watch: watch)}
+          {:noreply,
+           assign(socket,
+             inspected: info,
+             sys_feed: [],
+             sys_watch: watch,
+             vitals: sample_vitals(sub.pid, nil)
+           )}
 
         {:error, reason} ->
+          # vitals need no :sys — the one reading a non-OTP pid can still give
           inspected = %{pid: sub.pid, label: sub.label, error: reason}
-          {:noreply, assign(socket, inspected: inspected, sys_feed: [], sys_watch: nil)}
+
+          {:noreply,
+           assign(socket,
+             inspected: inspected,
+             sys_feed: [],
+             sys_watch: nil,
+             vitals: sample_vitals(sub.pid, nil)
+           )}
 
         nil ->
           {:noreply, socket}
@@ -379,6 +417,34 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         <div class="wt-modal-box">
           <h3>{@inspected.label} <span class="wt-dim">{inspect(@inspected.pid)}</span></h3>
 
+          <%= case @vitals do %>
+            <% :gone -> %>
+              <p class="wt-approx">process is gone</p>
+            <% %{} = v -> %>
+              <table class="wt-detail wt-vitals">
+                <tbody>
+                  <tr>
+                    <td>vitals</td>
+                    <td>
+                      {human_bytes(v.memory)}
+                      <span class="wt-dim">(heap {human_bytes(v.total_heap_size)})</span>
+                      · queue {v.message_queue_len} · {v.status}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>reductions</td>
+                    <td>
+                      {v.reductions}
+                      <span :if={v.reductions_delta} class="wt-dim">
+                        (+{v.reductions_delta}/s)
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            <% _ -> %>
+          <% end %>
+
           <%= if Map.has_key?(@inspected, :error) do %>
             <p class="wt-approx">
               {describe_peek_error(@inspected.error)}
@@ -429,6 +495,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
           <p class="wt-dim wt-headless-hint">
             headless twin: Wiretap.peek(pid) · Wiretap.SysInspector.watch_messages(pid)
+            · Wiretap.SysInspector.vitals(pid)
           </p>
           <button class="wt-btn" phx-click="close_inspector">close</button>
         </div>
@@ -446,5 +513,9 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
     defp format_mfa({m, f, a}), do: "#{inspect(m)}.#{f}/#{a}"
     defp format_mfa(other), do: inspect(other)
+
+    defp human_bytes(b) when b >= 1_048_576, do: "#{Float.round(b / 1_048_576, 1)} MB"
+    defp human_bytes(b) when b >= 1_024, do: "#{Float.round(b / 1_024, 1)} KB"
+    defp human_bytes(b), do: "#{b} B"
   end
 end
