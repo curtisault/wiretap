@@ -231,3 +231,9 @@ input[type="text"]:focus, select:focus { outline: 1px solid var(--accent); }
 .wt-trace-bc form { display: flex; gap: 0.5rem; margin: 0.5rem 0; }
 .wt-tree { list-style: none; padding: 0; margin: 0.5rem 0; font-size: 0.9em; }
 .wt-tree li { padding: 0.1rem 0; }
+
+.wt-inspector .wt-modal-box { z-index: 2; }
+.wt-sys-feed { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.wt-sys-feed h4 { margin: 0 0 0.25rem; color: var(--accent); }
+.wt-sys-feed ul { list-style: none; padding: 0; margin: 0.5rem 0; font-size: 0.9em; max-height: 14rem; overflow-y: auto; }
+.wt-sys-feed li { padding: 0.1rem 0; word-break: break-word; }

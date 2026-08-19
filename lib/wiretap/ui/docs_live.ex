@@ -98,6 +98,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.trace_broadcast/4 — the stamped delivery tree, relays included</td>
               </tr>
               <tr>
+                <td>"inspect" (topic inspector → subscriber row)</td>
+                <td>Wiretap.peek/1 · Wiretap.SysInspector.watch_messages/3 — :sys state + live feed</td>
+              </tr>
+              <tr>
                 <td>Arm form, "trace (exact events)"</td>
                 <td>Wiretap.watch(pubsub, trace: true) — or [prefixes: [...], mfas: [...]]</td>
               </tr>
@@ -134,6 +138,14 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             process, so wiretap sends the (test) broadcast itself; organic broadcasts
             cannot be intercepted. One trace at a time node-wide; a foreign seq_trace
             owner is detected and refused.
+          </p>
+          <p>
+            The <b>Process Inspector</b> reads one subscriber through <b>:sys</b>:
+            a truncated state preview, full-depth $ancestors/$callers breadcrumbs,
+            and a live message feed (capped at 50) via a temporary debug hook —
+            removed the moment the pane closes, self-removing if the inspector dies.
+            Raw (non-OTP) pids are detected from the pdict <b>before</b> any :sys
+            call and refused honestly: they can be tapped, not inspected.
           </p>
         </section>
 

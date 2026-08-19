@@ -10,6 +10,22 @@ defmodule Wiretap.UITest do
 
   @endpoint Endpoint
 
+  defmodule OtpListener do
+    @moduledoc false
+    use GenServer
+
+    def start(pubsub, topic, state), do: GenServer.start(__MODULE__, {pubsub, topic, state})
+
+    @impl true
+    def init({pubsub, topic, state}) do
+      :ok = Phoenix.PubSub.subscribe(pubsub, topic)
+      {:ok, state}
+    end
+
+    @impl true
+    def handle_info(_msg, state), do: {:noreply, state}
+  end
+
   setup_all do
     Application.put_env(:wiretap, Endpoint,
       secret_key_base: String.duplicate("a", 64),
@@ -166,6 +182,42 @@ defmodule Wiretap.UITest do
       :ok
     end
 
+    test "inspecting an OTP subscriber shows state, chains, and a live feed",
+         %{conn: conn, pubsub: pubsub} do
+      {:ok, listener} = OtpListener.start(pubsub, "station:jazz", %{tracks: 3})
+
+      {:ok, view, _html} = live(conn, "/")
+      view |> element("tr[phx-value-topic='station:jazz']") |> render_click()
+
+      html = view |> element("button", "inspect") |> render_click()
+      assert html =~ "initial call"
+      assert html =~ "OtpListener.init/1"
+      assert html =~ "tracks: 3"
+      assert html =~ "ancestors"
+      assert html =~ "headless twin: Wiretap.peek"
+
+      # the live feed: a broadcast lands as a :sys event in the open pane
+      Phoenix.PubSub.broadcast(pubsub, "station:jazz", {:now_playing, "Take Five"})
+      eventually(fn -> assert render(view) =~ "Take Five" end)
+
+      html = view |> element(".wt-inspector button", "close") |> render_click()
+      refute html =~ "initial call"
+
+      GenServer.stop(listener)
+    end
+
+    test "a raw-spawn subscriber gets the honest :sys refusal",
+         %{conn: conn, pubsub: pubsub} do
+      subscribe(pubsub, "station:raw")
+
+      {:ok, view, _html} = live(conn, "/")
+      view |> element("tr[phx-value-topic='station:raw']") |> render_click()
+
+      html = view |> element("button", "inspect") |> render_click()
+      assert html =~ "speak the :sys protocol"
+      refute html =~ "initial call"
+    end
+
     test "empty registry gets the explicit empty state", %{conn: conn, pubsub: pubsub} do
       {:ok, _view, html} = live(conn, "/")
       assert html =~ "Nobody is subscribed to anything on #{inspect(pubsub)}"
@@ -226,6 +278,7 @@ defmodule Wiretap.UITest do
       assert html =~ "How wiretap works"
       assert html =~ "YOUR APP — unmodified"
       assert html =~ "Every panel is a public function"
+      assert html =~ "Wiretap.peek/1"
       assert html =~ "max_rate"
       assert html =~ "The safety contract"
     end
