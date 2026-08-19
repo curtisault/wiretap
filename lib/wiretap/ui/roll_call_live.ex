@@ -5,6 +5,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     use Phoenix.LiveView
 
     alias Wiretap.Snapshot
+    alias Wiretap.SysInspector
     alias Wiretap.UI.Layouts
 
     @refresh_ms 1_000
@@ -20,7 +21,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
          filter: "",
          expanded: MapSet.new(),
          selected_topic: nil,
-         broadcast_tree: nil
+         broadcast_tree: nil,
+         inspected: nil,
+         sys_feed: [],
+         sys_watch: nil
        )
        |> load()}
     end
@@ -29,6 +33,31 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     def handle_info(:refresh, socket) do
       schedule()
       {:noreply, load(socket)}
+    end
+
+    # Inspector feed: the SysInspector debug fun forwards :sys events here.
+    def handle_info({:wiretap_sys_event, pid, event}, socket) do
+      if match?(%{pid: ^pid}, socket.assigns.inspected) do
+        entry = %{at: Time.truncate(Time.utc_now(), :millisecond), text: SysInspector.describe_event(event)}
+        {:noreply, assign(socket, sys_feed: Enum.take([entry | socket.assigns.sys_feed], 50))}
+      else
+        {:noreply, socket}
+      end
+    end
+
+    @impl true
+    def terminate(_reason, socket) do
+      close_inspector(socket)
+      :ok
+    end
+
+    defp close_inspector(socket) do
+      case Map.get(socket.assigns, :sys_watch) do
+        {pid, id} -> SysInspector.stop_watching(pid, id)
+        _ -> :ok
+      end
+
+      assign(socket, inspected: nil, sys_feed: [], sys_watch: nil)
     end
 
     @impl true
@@ -41,7 +70,38 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     end
 
     def handle_event("close_topic", _params, socket) do
-      {:noreply, assign(socket, selected_topic: nil, broadcast_tree: nil)}
+      {:noreply,
+       socket
+       |> close_inspector()
+       |> assign(selected_topic: nil, broadcast_tree: nil)}
+    end
+
+    # Process Inspector (4.2): compliance is detected before any :sys call —
+    # raw pids get an honest refusal pane, never a hanging :sys.install.
+    def handle_event("inspect_pid", %{"idx" => idx}, socket) do
+      sub = Enum.at(socket.assigns.selected_topic.subscribers, String.to_integer(idx))
+
+      case sub && SysInspector.peek(sub.pid) do
+        {:ok, info} ->
+          watch =
+            case SysInspector.watch_messages(sub.pid, self()) do
+              {:ok, id} -> {sub.pid, id}
+              _ -> nil
+            end
+
+          {:noreply, assign(socket, inspected: info, sys_feed: [], sys_watch: watch)}
+
+        {:error, reason} ->
+          inspected = %{pid: sub.pid, label: sub.label, error: reason}
+          {:noreply, assign(socket, inspected: inspected, sys_feed: [], sys_watch: nil)}
+
+        nil ->
+          {:noreply, socket}
+      end
+    end
+
+    def handle_event("close_inspector", _params, socket) do
+      {:noreply, close_inspector(socket)}
     end
 
     # Broadcast Trace (3b): injected by design — wiretap sends the stamped
@@ -257,6 +317,15 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                   >
                     tap messages
                   </button>
+                  <button
+                    :if={sub.alive?}
+                    class="wt-btn"
+                    phx-click="inspect_pid"
+                    phx-value-idx={idx}
+                    title="read this process through :sys — state, ancestry, live message feed"
+                  >
+                    inspect
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -304,7 +373,78 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           <button class="wt-btn" phx-click="close_topic">close</button>
         </div>
       </div>
+
+      <div :if={@inspected} class="wt-modal wt-inspector">
+        <div class="wt-modal-backdrop" phx-click="close_inspector"></div>
+        <div class="wt-modal-box">
+          <h3>{@inspected.label} <span class="wt-dim">{inspect(@inspected.pid)}</span></h3>
+
+          <%= if Map.has_key?(@inspected, :error) do %>
+            <p class="wt-approx">
+              {describe_peek_error(@inspected.error)}
+            </p>
+          <% else %>
+            <table class="wt-detail">
+              <tbody>
+                <tr>
+                  <td>initial call</td>
+                  <td>{format_mfa(@inspected.initial_call)}</td>
+                </tr>
+                <tr>
+                  <td>queue length</td>
+                  <td>{@inspected.message_queue_len}</td>
+                </tr>
+                <tr :if={@inspected.ancestors != []}>
+                  <td>ancestors</td>
+                  <td>{Enum.join(@inspected.ancestors, " → ")}</td>
+                </tr>
+                <tr :if={@inspected.callers != []}>
+                  <td>callers</td>
+                  <td>{Enum.join(@inspected.callers, " → ")}</td>
+                </tr>
+                <tr>
+                  <td>state</td>
+                  <td>
+                    <pre :if={@inspected.state_preview}>{@inspected.state_preview}</pre>
+                    <span :if={is_nil(@inspected.state_preview)} class="wt-approx">
+                      no answer within 200ms — the process is busy; chains above are still real
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="wt-sys-feed">
+              <h4>live message feed <span class="wt-dim">(:sys events, capped at 50)</span></h4>
+              <p :if={@sys_feed == []} class="wt-dim">
+                waiting for messages — the hook is removed the moment you close this pane
+              </p>
+              <ul :if={@sys_feed != []}>
+                <li :for={entry <- @sys_feed}>
+                  <span class="wt-dim">{entry.at}</span> {entry.text}
+                </li>
+              </ul>
+            </div>
+          <% end %>
+
+          <p class="wt-dim wt-headless-hint">
+            headless twin: Wiretap.peek(pid) · Wiretap.SysInspector.watch_messages(pid)
+          </p>
+          <button class="wt-btn" phx-click="close_inspector">close</button>
+        </div>
+      </div>
       """
     end
+
+    defp describe_peek_error(:not_otp_compliant) do
+      "this process doesn't speak the :sys protocol (no $initial_call) — " <>
+        "a raw spawn can't be inspected, only tapped"
+    end
+
+    defp describe_peek_error(:not_alive), do: "this process is gone"
+    defp describe_peek_error(other), do: inspect(other)
+
+    defp format_mfa({m, f, a}), do: "#{inspect(m)}.#{f}/#{a}"
+    defp format_mfa(other), do: inspect(other)
   end
 end

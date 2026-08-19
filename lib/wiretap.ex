@@ -70,6 +70,19 @@ defmodule Wiretap do
           {:ok, map()} | {:error, :foreign_tracer}
   defdelegate trace_broadcast(pubsub, topic, message, opts \\ []), to: Wiretap.SeqTracer
 
+  @doc """
+  Process Inspector (§4.2): reads one live OTP process through `:sys` —
+  truncated state preview, `$ancestors`/`$callers` breadcrumbs, queue length.
+  Non-OTP pids are detected before any `:sys` call and refused gracefully.
+
+      Wiretap.peek(pid)
+      #=> {:ok, %{label: "LiveView", state_preview: "%{...}", ancestors: [...]}}
+
+  For the live message feed, see `Wiretap.SysInspector.watch_messages/3`.
+  """
+  @spec peek(pid()) :: {:ok, Wiretap.SysInspector.info()} | {:error, term()}
+  defdelegate peek(pid), to: Wiretap.SysInspector
+
   @doc "Snapshot of every subscription: topic → sorted subscriber pids."
   @spec snapshot(Snapshot.pubsub()) :: Snapshot.t()
   defdelegate snapshot(pubsub), to: Snapshot, as: :take
