@@ -72,7 +72,7 @@ defmodule HarnessWeb.Layouts do
       {"ATC console", "/demo"},
       {"How it works", "/docs"},
       {"Roll Call (LiveDashboard)", "/dashboard/wiretap"},
-      {"Wiretap UI ↗", "http://localhost:4008"}
+      {"Wiretap UI ↗", "http://localhost:5556"}
     ]
   end
 
