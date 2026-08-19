@@ -133,6 +133,36 @@ defmodule Wiretap.SysInspectorTest do
     end
   end
 
+  describe "vitals/1" do
+    test "reads vitals from any pid — raw spawns included, no :sys involved" do
+      raw = raw_pid()
+
+      assert {:ok, vitals} = SysInspector.vitals(raw)
+      assert vitals.memory > 0
+      assert vitals.total_heap_size > 0
+      assert vitals.message_queue_len == 0
+      assert is_integer(vitals.reductions)
+      assert vitals.status in [:waiting, :running, :runnable]
+    end
+
+    test "queue length reflects reality" do
+      {:ok, pid} = Listener.start(:idle)
+      :sys.suspend(pid)
+      send(pid, :queued)
+
+      assert {:ok, %{message_queue_len: 1}} = SysInspector.vitals(pid)
+
+      :sys.resume(pid)
+      GenServer.stop(pid)
+    end
+
+    test "refuses a dead pid" do
+      {:ok, pid} = Listener.start(:idle)
+      GenServer.stop(pid)
+      assert {:error, :not_alive} = SysInspector.vitals(pid)
+    end
+  end
+
   describe "describe_event/1" do
     test "renders the common gen_server event shapes" do
       assert SysInspector.describe_event({:in, :ping}) =~ "in ◀ :ping"

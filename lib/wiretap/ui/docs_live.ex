@@ -102,7 +102,9 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
               </tr>
               <tr>
                 <td>"inspect" (topic inspector → subscriber row)</td>
-                <td>Wiretap.peek/1 · Wiretap.SysInspector.watch_messages/3 — :sys state + live feed</td>
+                <td>
+                  Wiretap.peek/1 · SysInspector.watch_messages/3 · vitals/1 — :sys state, live feed, sampled vitals
+                </td>
               </tr>
               <tr>
                 <td>Arm form, "trace (exact events)"</td>
@@ -148,7 +150,11 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             and a live message feed (capped at 50) via a temporary debug hook —
             removed the moment the pane closes, self-removing if the inspector dies.
             Raw (non-OTP) pids are detected from the pdict <b>before</b> any :sys
-            call and refused honestly: they can be tapped, not inspected.
+            call and refused honestly: they can be tapped, not inspected. The pane
+            also shows <b>process vitals</b> (memory, queue length, reductions rate),
+            re-sampled on the refresh poll only while the pane is open — never a
+            standing emitter — and vitals need no :sys, so even a refused raw pid
+            gets them.
           </p>
         </section>
 
