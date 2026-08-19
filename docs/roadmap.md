@@ -111,7 +111,9 @@ Project skeleton per architecture §9, plus the spikes that gate design decision
 
 - [ ] `config :wiretap, :profile, :production`: budgets ~10× tighter, 3a payload
       capture disabled, per-session confirmation required
-- [ ] Docs site, README with panel table, `groups_for_modules` by layer
+- [ ] Docs: hexdocs API reference (README with panel table, `groups_for_modules` by
+      layer) **plus** a hand-built static showcase site on GitHub Pages themed like
+      the Wiretap UI, cross-linked (decision 2026-08-19)
 - [ ] Multi-node research spike: `:erpc` fan-in, Redis-adapter story (A7 findings)
 - [ ] Coverage/doc gates at final thresholds (doctor, excoveralls minimums)
 - [ ] Docs currency: Wiretap UI `/docs` and harness `/docs` updated for everything v1.0 changes
