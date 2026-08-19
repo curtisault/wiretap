@@ -10,7 +10,8 @@ defmodule Wiretap.Application do
         {Registry, keys: :unique, name: Wiretap.Registry},
         {Phoenix.PubSub, name: Wiretap.PubSub},
         {DynamicSupervisor, name: Wiretap.SessionSupervisor, strategy: :one_for_one},
-        Wiretap.SessionManager
+        Wiretap.SessionManager,
+        Wiretap.SeqTracer
       ] ++ Wiretap.UI.children()
 
     # Idle = free (§8.1): nothing here polls, traces, or subscribes to host

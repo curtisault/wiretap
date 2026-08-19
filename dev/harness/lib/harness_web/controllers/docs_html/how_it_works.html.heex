@@ -102,6 +102,10 @@
               <td>"tap messages" (Wiretap UI topic inspector) — see what a pid hears</td>
               <td>Wiretap.watch(pubsub, tap: [pid], payloads: 10_240)</td>
             </tr>
+            <tr>
+              <td>Broadcast Trace (Wiretap UI topic inspector) — the fan-out tree</td>
+              <td>Wiretap.trace_broadcast(pubsub, topic, msg) — injected stamped broadcast</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -179,6 +183,9 @@ Wiretap.events(t)                         # exact events with caller attribution
 pid = Wiretap.subscribers(Harness.PubSub, "atc:events") |> hd()
 {:ok, w} = Wiretap.watch(Harness.PubSub, tap: [pid])
 Wiretap.events(w)                         # :message events — what that pid hears
+
+Wiretap.trace_broadcast(Harness.PubSub, "atc:events", :ping)
+#=> {:ok, %{hops: [...]}}                 # who received it, in causal order
 Wiretap.sessions()                        # budgets and status
 Wiretap.stop(s)</code></pre>
     </div>

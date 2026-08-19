@@ -19,7 +19,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
          pubsub: Wiretap.UI.pubsub(),
          filter: "",
          expanded: MapSet.new(),
-         selected_topic: nil
+         selected_topic: nil,
+         broadcast_tree: nil
        )
        |> load()}
     end
@@ -40,7 +41,20 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
     end
 
     def handle_event("close_topic", _params, socket) do
-      {:noreply, assign(socket, selected_topic: nil)}
+      {:noreply, assign(socket, selected_topic: nil, broadcast_tree: nil)}
+    end
+
+    # Broadcast Trace (3b): injected by design — wiretap sends the stamped
+    # broadcast itself; the tree follows the token through relays.
+    def handle_event("trace_broadcast", %{"payload" => payload}, socket) do
+      result =
+        Wiretap.trace_broadcast(
+          socket.assigns.pubsub,
+          socket.assigns.selected_topic.topic,
+          {:wiretap_trace, payload}
+        )
+
+      {:noreply, assign(socket, broadcast_tree: result)}
     end
 
     # B2 funnel: tap a subscriber straight from the topic inspector — starts a
@@ -248,8 +262,44 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             </tbody>
           </table>
 
+          <div class="wt-trace-bc">
+            <h4>Broadcast Trace</h4>
+            <p class="wt-dim">
+              wiretap sends a stamped test broadcast on this topic and maps the delivery
+              tree — relays included. (Tokens cannot be injected into organic broadcasts.)
+            </p>
+            <form phx-submit="trace_broadcast">
+              <input type="text" name="payload" value="wiretap test" />
+              <button class="wt-btn" type="submit">send + trace</button>
+            </form>
+
+            <%= case @broadcast_tree do %>
+              <% nil -> %>
+              <% {:error, :foreign_tracer} -> %>
+                <p class="wt-approx">
+                  another tool owns the seq_trace system tracer — refusing to clobber it
+                </p>
+              <% {:ok, %{hops: []}} -> %>
+                <p class="wt-approx">
+                  delivered to nobody — this topic is not wired to anything right now
+                </p>
+              <% {:ok, tree} -> %>
+                <ul class="wt-tree">
+                  <li :for={hop <- tree.hops} style={"padding-left: #{hop.depth}rem"}>
+                    <span class="wt-dim">+{hop.delta_us}µs</span>
+                    {hop.from_label} → <b>{hop.to_label}</b>
+                    <span class="wt-dim">{hop.message_preview}</span>
+                  </li>
+                </ul>
+                <p class="wt-dim">
+                  {length(tree.hops)} deliveries · depth {Enum.max(Enum.map(tree.hops, & &1.depth))}
+                </p>
+            <% end %>
+          </div>
+
           <p class="wt-dim wt-headless-hint">
             headless twin: Wiretap.subscribers({inspect(@pubsub)}, "{@selected_topic.topic}")
+            · Wiretap.trace_broadcast({inspect(@pubsub)}, "{@selected_topic.topic}", msg)
           </p>
           <button class="wt-btn" phx-click="close_topic">close</button>
         </div>
