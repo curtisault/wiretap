@@ -5,6 +5,7 @@
 # Plain `mix phx.server` never reads this file — start with iex to get the
 # banner, aliases, and bindings below.
 
+alias Harness.TelemetryDebug
 alias Harness.Tower
 alias Wiretap.Snapshot
 
@@ -36,7 +37,11 @@ IO.puts(
     """,
     :reset,
     """
-      aliases   Tower, Snapshot        binding   pubsub = Harness.PubSub
+      aliases   Tower, Snapshot, TelemetryDebug   binding   pubsub = Harness.PubSub
+
+      TelemetryDebug.on()                       # print wiretap's own telemetry
+      TelemetryDebug.on(:tower)                 # + tower events (noisy) · off()
+      {:ok, b} = Wiretap.watch(pubsub, telemetry: [[:harness, :tower, :entered]])
 
       Wiretap.snapshot(pubsub)                  # topic → subscriber pids
       {:ok, s} = Wiretap.watch(pubsub, trace: true)

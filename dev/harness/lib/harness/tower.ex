@@ -65,6 +65,12 @@ defmodule Harness.Tower do
 
         broadcast("flight:" <> callsign, {:position, callsign, payload})
 
+        :telemetry.execute(
+          [:harness, :tower, :transmission],
+          %{alt: flight.alt, gs: flight.gs},
+          %{callsign: callsign, topic: "flight:" <> callsign}
+        )
+
         {callsign,
          %{
            flight
@@ -85,6 +91,7 @@ defmodule Harness.Tower do
 
     for {callsign, _flight} <- landed do
       broadcast("atc:events", {:atc, :landed, callsign})
+      :telemetry.execute([:harness, :tower, :landed], %{}, %{callsign: callsign})
     end
 
     %{state | flights: Map.new(active)}
@@ -125,7 +132,15 @@ defmodule Harness.Tower do
       ttl: Enum.random(@ttl_range)
     }
 
-    if opts[:announce?], do: broadcast("atc:events", {:atc, :entered, callsign})
+    if opts[:announce?] do
+      broadcast("atc:events", {:atc, :entered, callsign})
+
+      :telemetry.execute(
+        [:harness, :tower, :entered],
+        %{},
+        %{callsign: callsign, type: flight.type, route: "#{origin} → #{destination}"}
+      )
+    end
 
     spawn_flights(
       %{state | flights: Map.put(state.flights, callsign, flight), counter: state.counter + 1},
