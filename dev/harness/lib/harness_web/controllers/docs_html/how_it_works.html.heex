@@ -87,6 +87,12 @@
               <td>Wiretap.Test.assert_subscribed/refute_subscribed</td>
             </tr>
             <tr>
+              <td>
+                Tower telemetry on a Timeline (the v0.2 bridge; tower emits entered/landed/transmission)
+              </td>
+              <td>Wiretap.watch(pubsub, telemetry: [[:harness, :tower, :entered]])</td>
+            </tr>
+            <tr>
               <td>Standalone UI (:4008) Roll Call + Timeline + Sessions + Docs</td>
               <td>Wiretap.Snapshot.roll_call/2 · Wiretap.events/1 · sessions/0 · watch/2 trace: true</td>
             </tr>
@@ -134,10 +140,14 @@
         Wiretap also emits telemetry about itself:
         <span class="font-mono">[:wiretap, :session, :start | :stop]</span>
         (span convention), <span class="font-mono">[:wiretap, :budget, :exhausted]</span>
-        (the alarm to page on),
+        (the alarm to page on), <span class="font-mono">[:wiretap, :collector, :dropped]</span>
+        (receiver overload — watermark drops),
         and <span class="font-mono">[:wiretap, :registry, :incompatible]</span>
         (shape-probe
-        failure — the library refuses to report wrong data).
+        failure — the library refuses to report wrong data). To watch them from the
+        console while driving the demo: <span class="font-mono">Harness.TelemetryDebug.on()</span>
+        — the <span class="font-mono">.iex.exs</span>
+        banner has the one-liners.
       </p>
     </div>
 
@@ -168,6 +178,9 @@ Wiretap.subscribers(Harness.PubSub, "atc:events")
 
 {:ok, s} = Wiretap.watch(Harness.PubSub, interval_ms: 250)
 Wiretap.events(s)                         # joined/left events with pid labels
+
+{:ok, b} = Wiretap.watch(Harness.PubSub, telemetry: [[:harness, :tower, :entered]])
+Wiretap.events(b)                         # host telemetry on the timeline (v0.2 bridge)
 
 {:ok, t} = Wiretap.watch(Harness.PubSub, trace: [prefixes: ["flight:"]])
 Wiretap.events(t)                         # exact events with caller attribution
