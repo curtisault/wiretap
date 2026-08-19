@@ -187,6 +187,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       "#{event.topic} #{event.pid_label} (#{inspect(event.meta.reason)})"
     end
 
+    defp describe(%{kind: :message} = event) do
+      "#{event.pid_label} ← #{event.payload_preview || "(payloads off)"}"
+    end
+
     defp describe(event), do: "#{event.topic} #{event.pid_label}"
 
     @impl true

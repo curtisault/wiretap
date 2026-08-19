@@ -28,7 +28,11 @@ defmodule Wiretap do
   (append captured events to this file — one grep-able line per event; add it
   to .gitignore), `:trace` (`true` or `[prefixes: ["station:"], mfas:
   [{MyApp.Stations, :subscribe, 1}]]` — layer-2 call tracing: exact
-  joined/left events with caller attribution, requires OTP 27+).
+  joined/left events with caller attribution, requires OTP 27+), `:tap`
+  (`[pid]` — layer 3a: capture everything the selected pids receive as
+  `:message` events; per-pid, never groups), `:payloads`
+  (`:off | bytes | :unlimited`, default 10_240 — preview size for tapped
+  messages).
 
       {:ok, session} = Wiretap.watch(MyApp.PubSub, interval_ms: 250)
       # ... exercise the app ...

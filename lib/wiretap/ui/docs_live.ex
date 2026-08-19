@@ -17,9 +17,9 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         <h1>How wiretap works</h1>
         <p class="wt-dim">
           Wiretap answers three questions about a running BEAM app, live: who is listening
-          on your Phoenix.PubSub topics, when did they start and stop (and who asked), and —
-          in a later release — what they are hearing. Your app is never modified and pays
-          nothing while the tool is idle.
+          on your Phoenix.PubSub topics, when did they start and stop (and who asked), and
+          what a tapped subscriber is hearing. Your app is never modified and pays nothing
+          while the tool is idle.
         </p>
 
         <section>
@@ -90,6 +90,10 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.sessions/0</td>
               </tr>
               <tr>
+                <td>"tap messages" (topic inspector → subscriber row)</td>
+                <td>Wiretap.watch(pubsub, tap: [pid]) — :message events with payload previews</td>
+              </tr>
+              <tr>
                 <td>Arm form, "trace (exact events)"</td>
                 <td>Wiretap.watch(pubsub, trace: true) — or [prefixes: [...], mfas: [...]]</td>
               </tr>
@@ -111,7 +115,12 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             (how wiretap knows). Snapshot-sourced rows wear the ≈ badge: polling can miss
             sub-interval churn. Trace-sourced rows are exact, caller-attributed, and
             badge-free. Deaths are never calls, so <b>left_by_death</b> (with the exit
-            reason) always comes from monitors. Finished sessions keep their events
+            reason) always comes from monitors. Sessions can also <b>tap</b> explicitly
+            selected pids (<b>tap: [pid]</b> — layer 3a): everything a tapped pid
+            receives lands as a <b>:message</b> event, previewed per the
+            <b>payloads:</b> knob (:off | bytes | :unlimited, default 10KB). A
+            delivered message carries no topic, so taps are per-pid, never
+            per-topic — budgets protect. Finished sessions keep their events
             readable — the ring buffer outlives the session.
           </p>
         </section>

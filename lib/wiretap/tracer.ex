@@ -79,7 +79,7 @@ defmodule Wiretap.Tracer do
       dropped: 0
     }
 
-    {:ok, seed_baseline(state)}
+    {:ok, if(session.trace, do: seed_baseline(state), else: state)}
   end
 
   @impl true
@@ -106,6 +106,18 @@ defmodule Wiretap.Tracer do
   end
 
   defp arm(trace_session, session) do
+    if session.trace, do: arm_calls(trace_session, session)
+
+    # Layer 3a: per-pid :receive tracing on explicitly selected pids only —
+    # never groups, never :all (§3a).
+    for pid <- session.tap do
+      :trace.process(trace_session, pid, true, [:receive])
+    end
+
+    :ok
+  end
+
+  defp arm_calls(trace_session, session) do
     %{prefixes: prefixes, mfas: mfas} = session.trace
     pubsub = session.pubsub
 
@@ -151,6 +163,23 @@ defmodule Wiretap.Tracer do
   end
 
   @impl true
+  def handle_info({:trace, pid, :receive, message}, state) do
+    state = drop_control(state)
+
+    if state.dropping? do
+      {:noreply, %{state | dropped: state.dropped + 1}}
+    else
+      push(state.session, %{
+        kind: :message,
+        source: :receive_trace,
+        pid: pid,
+        payload_preview: message_preview(message, state.session.payloads)
+      })
+
+      {:noreply, state}
+    end
+  end
+
   def handle_info({:trace, pid, :call, mfa_args}, state) do
     handle_trace(pid, mfa_args, nil, state)
   end
@@ -225,6 +254,23 @@ defmodule Wiretap.Tracer do
   end
 
   defp push(session, attrs), do: Collector.push(session.name, attrs)
+
+  # B7 payload knob: previews only, sized by the session's :payloads setting.
+  defp message_preview(_message, :off), do: nil
+
+  defp message_preview(message, :unlimited) do
+    inspect(message, limit: :infinity, printable_limit: :infinity)
+  end
+
+  defp message_preview(message, bytes) when is_integer(bytes) do
+    preview = inspect(message, limit: 50, printable_limit: bytes)
+
+    if byte_size(preview) > bytes do
+      String.slice(preview, 0, bytes) <> "…"
+    else
+      preview
+    end
+  end
 
   defp track(state, pid, topic) do
     topics = Map.update(state.topics, pid, MapSet.new([topic]), &MapSet.put(&1, topic))
