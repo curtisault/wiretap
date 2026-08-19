@@ -50,6 +50,8 @@
 │         └───────────┬────────────┴────────┘                            │
 │                     ▼                                                  │
 │   Wiretap.Collector ── per-session ETS ring buffer (10k events)        │
+│     + layer 3, on demand: tap: [pid] (:receive) · trace_broadcast/4    │
+│       (seq_trace fan-out tree) · Wiretap.peek/1 (:sys inspector)       │
 │         ▲                    heir: SessionManager, so events           │
 │         │                    outlive the session                       │
 │   Wiretap.SessionManager ── budgets (events / duration / rate),        │
@@ -88,11 +90,17 @@
             </tr>
             <tr>
               <td>Standalone UI (:5556) Roll Call + Timeline + Sessions + Docs</td>
-              <td>Wiretap.Snapshot.roll_call/2 · Wiretap.events/1 · sessions/0 · watch/2 trace: true</td>
+              <td>
+                Wiretap.Snapshot.roll_call/2 · Wiretap.events/1 · sessions/0 · watch/2 trace: true
+              </td>
             </tr>
             <tr>
-              <td>Row inspectors (transmissions here; Timeline rows + Roll Call topics in the Wiretap UI)</td>
-              <td>Wiretap.events/1 by seq · Wiretap.subscribers/2 — each modal shows its headless twin</td>
+              <td>
+                Row inspectors (transmissions here; Timeline rows + Roll Call topics in the Wiretap UI)
+              </td>
+              <td>
+                Wiretap.events/1 by seq · Wiretap.subscribers/2 — each modal shows its headless twin
+              </td>
             </tr>
             <tr>
               <td>Sessions card "exact (call tracing)" toggle</td>
@@ -190,6 +198,8 @@ Wiretap.events(w)                         # :message events — what that pid he
 
 Wiretap.trace_broadcast(Harness.PubSub, "atc:events", :ping)
 #=> {:ok, %{hops: [...]}}                 # who received it, in causal order
+
+Wiretap.peek(pid)                         # :sys state preview + ancestry
 Wiretap.sessions()                        # budgets and status
 Wiretap.stop(s)</code></pre>
     </div>
