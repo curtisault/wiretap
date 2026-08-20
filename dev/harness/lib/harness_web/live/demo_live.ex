@@ -132,6 +132,11 @@ defmodule HarnessWeb.DemoLive do
     {:noreply, assign(socket, received: Enum.take([entry | socket.assigns.received], 50))}
   end
 
+  # Shared frequencies carry messages we didn't ask for — wiretap's Broadcast
+  # Trace test messages, Harness.Transmit traffic, future tower message types.
+  # A subscriber must never crash on static.
+  def handle_info(_unknown, socket), do: {:noreply, socket}
+
   defp refresh_registry_truth(socket) do
     topics =
       if connected?(socket) do
