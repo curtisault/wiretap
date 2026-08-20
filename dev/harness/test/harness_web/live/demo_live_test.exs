@@ -65,6 +65,15 @@ defmodule HarnessWeb.DemoLiveTest do
     assert_subscribed(@pubsub, "atc:events", view.pid)
   end
 
+  test "unknown messages on shared frequencies never crash the console", %{view: view} do
+    # wiretap's Broadcast Trace test message, Transmit traffic, future tower shapes
+    Phoenix.PubSub.broadcast(@pubsub, "atc:events", {:wiretap_trace, "wiretap test"})
+    Phoenix.PubSub.broadcast(@pubsub, "atc:events", {:burst, 1, 500})
+
+    assert render(view) =~ "Airspace"
+    assert Process.alive?(view.pid)
+  end
+
   test "clicking a received transmission opens a metadata modal", %{view: view} do
     payload = %{
       alt: 33_000,

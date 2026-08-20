@@ -7,6 +7,7 @@
 
 alias Harness.TelemetryDebug
 alias Harness.Tower
+alias Harness.Transmit
 alias Wiretap.Snapshot
 
 # The real configured ports (not hardcoded) — stays true if config changes.
@@ -35,9 +36,14 @@ IO.puts(
     """
     ─────────────────────────────────────────────────────────────────
     """,
-    :reset,
+    :magenta,
     """
-      aliases   Tower, Snapshot, TelemetryDebug   binding   pubsub = Harness.PubSub
+      aliases   Tower, Snapshot, TelemetryDebug, Transmit
+      binding   pubsub = Harness.PubSub
+
+      Transmit.broadcast("station:alpha", {:msg, "hello"})   # your own traffic
+      Transmit.to_flight("WT-101", {:atc, :cleared_to_land}) # one frequency
+      Transmit.burst("atc:events", 500)         # trip a max_rate budget
 
       TelemetryDebug.on()                       # print wiretap's own telemetry
       TelemetryDebug.on(:tower)                 # + tower events (noisy) · off()
@@ -50,7 +56,8 @@ IO.puts(
       {:ok, w} = Wiretap.watch(pubsub, tap: [pid])   # what that pid hears
       Wiretap.trace_broadcast(pubsub, "atc:events", :ping)  # fan-out tree
       Wiretap.peek(pid)                         # :sys state + ancestry
-    """
+    """,
+    :reset
   ])
 )
 
