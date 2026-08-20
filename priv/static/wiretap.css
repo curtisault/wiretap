@@ -114,9 +114,16 @@ input[type="text"]:focus, select:focus { outline: 1px solid var(--accent); }
 .wt-empty-title { font-weight: 700; margin: 0 0 0.4rem; }
 .wt-empty-body { color: var(--dim); margin: 0 0 0.8rem; }
 
-.wt-session-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.wt-session-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+.wt-session-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem; }
+.wt-controls-left { display: flex; align-items: center; gap: 1rem; }
+.wt-controls-left input[name="q"] { width: 18rem; max-width: 40vw; }
+.wt-controls-center { text-align: center; white-space: nowrap; }
+.wt-session-controls > .wt-badge { justify-self: end; }
+.wt-session-notes { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9em; }
+.wt-shown-count { margin: 0.35rem 0 0; font-size: 0.9em; }
 
-.wt-badge { padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--line); }
+.wt-badge { padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--line); width: fit-content; }
 .wt-running { color: var(--accent); border-color: var(--accent); }
 .wt-expired { color: var(--warn); border-color: var(--warn); }
 .wt-crashed { color: var(--error); border-color: var(--error); }

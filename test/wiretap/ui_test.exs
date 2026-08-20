@@ -313,6 +313,52 @@ defmodule Wiretap.UITest do
       assert html =~ "stopped"
     end
 
+    test "the text filter narrows the display without touching capture, and ?q= seeds it",
+         %{conn: conn, pubsub: pubsub} do
+      {:ok, session} = Wiretap.watch(pubsub, trace: true)
+      jazz = subscribe(pubsub, "station:jazz")
+      subscribe(pubsub, "atc:events")
+
+      eventually(fn ->
+        topics = session |> Wiretap.events() |> Enum.map(& &1.topic)
+        assert "station:jazz" in topics and "atc:events" in topics
+      end)
+
+      {:ok, view, _html} = live(conn, "/timeline?session=#{session}")
+
+      html = view |> element("#wt-timeline-filter") |> render_change(%{"q" => "jazz"})
+      assert html =~ "station:jazz"
+      refute html =~ "atc:events"
+      assert html =~ "of 2 shown"
+
+      # the full capture is still inspectable by seq while filtered
+      joined = Enum.find(Wiretap.events(session), &(&1.topic == "station:jazz"))
+      assert joined.pid == jazz
+
+      # no match: explicit empty state with a clear affordance
+      html = view |> element("#wt-timeline-filter") |> render_change(%{"q" => "nothing-here"})
+      assert html =~ "Nothing matches"
+      html = view |> element("button", "clear filter") |> render_click()
+      assert html =~ "atc:events"
+
+      # ?q= deep-links a filter
+      {:ok, _view, html} = live(conn, "/timeline?session=#{session}&q=jazz")
+      assert html =~ "station:jazz"
+      refute html =~ "atc:events"
+
+      Wiretap.stop(session)
+    end
+
+    test "a tap session's bar states the per-pid honesty note", %{conn: conn, pubsub: pubsub} do
+      listener = subscribe(pubsub, "station:jazz")
+      {:ok, session} = Wiretap.watch(pubsub, tap: [listener])
+
+      {:ok, _view, html} = live(conn, "/timeline?session=#{session}")
+      assert html =~ "delivered messages carry no topic"
+
+      Wiretap.stop(session)
+    end
+
     test "clicking a row opens the full-event inspector", %{conn: conn, pubsub: pubsub} do
       {:ok, session} = Wiretap.watch(pubsub, trace: true)
       listener = subscribe(pubsub, "station:jazz")

@@ -247,7 +247,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
       <main class="wt-main">
         <div class="wt-panel-head">
           <h1>Roll Call <span :if={@pubsub} class="wt-dim">{inspect(@pubsub)}</span></h1>
-          <form phx-change="filter">
+          <form id="wt-rollcall-filter" phx-change="filter">
             <input type="text" name="q" value={@filter} placeholder="filter topics…" phx-debounce="150" />
           </form>
         </div>
@@ -351,7 +351,7 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                     class="wt-btn"
                     phx-click="tap_pid"
                     phx-value-idx={idx}
-                    title="start a session capturing every message this pid receives"
+                    title="start a session capturing EVERYTHING this pid receives — taps are per-pid, not per-topic (delivered messages carry no topic)"
                   >
                     tap messages
                   </button>
