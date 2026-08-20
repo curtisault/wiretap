@@ -374,6 +374,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             <p class="wt-dim">
               wiretap sends a stamped test broadcast on this topic and maps the delivery
               tree — relays included. (Tokens cannot be injected into organic broadcasts.)
+              The test broadcast is a real message: a subscriber that can't ignore unknown
+              messages — e.g. a LiveView without a catch-all handle_info — will crash on it.
             </p>
             <form phx-submit="trace_broadcast">
               <input type="text" name="payload" value="wiretap test" />
@@ -400,6 +402,13 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 </ul>
                 <p class="wt-dim">
                   {length(tree.hops)} deliveries · depth {Enum.max(Enum.map(tree.hops, & &1.depth))}
+                </p>
+                <p :if={tree.system_hops > 0} class="wt-dim">
+                  {tree.system_hops} system hops classified out (code loading, logging, io)
+                </p>
+                <p :if={tree.recipient_crashed?} class="wt-approx">
+                  ⚠ a recipient crashed handling this broadcast — it likely has no
+                  catch-all handle_info for unknown messages
                 </p>
             <% end %>
           </div>

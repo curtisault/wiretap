@@ -46,13 +46,27 @@ defmodule Wiretap.SeqTracer do
   Options: `:collect_ms` (how long to keep collecting hops after the
   broadcast, default #{@collect_ms} — raise it when relays are slow).
 
-  Returns `{:ok, %{topic: topic, message_preview: preview, hops: [hop]}}` —
-  an empty `hops` list answers "is it even wired?" — or
-  `{:error, :foreign_tracer}` when another tool owns the seq_trace system
-  tracer. Concurrent requests serialize; each gets its own tree.
+  Returns `{:ok, %{topic: topic, message_preview: preview, hops: [hop],
+  system_hops: n, recipient_crashed?: bool}}` — an empty `hops` list
+  answers "is it even wired?" — or `{:error, :foreign_tracer}` when another
+  tool owns the seq_trace system tracer. Concurrent requests serialize; each
+  gets its own tree.
+
+  `system_hops` counts token-carrying infrastructure sends classified out of
+  the tree (code loading, logging, io, spawn protocol). `recipient_crashed?`
+  means a recipient died abnormally while handling the message (seen via its
+  token-carrying exit signal) — the injected broadcast is a real message, and
+  a subscriber with no catch-all `handle_info` crashes on it.
   """
   @spec trace_broadcast(atom(), String.t(), term(), keyword()) ::
-          {:ok, %{topic: String.t(), message_preview: String.t(), hops: [hop()]}}
+          {:ok,
+           %{
+             topic: String.t(),
+             message_preview: String.t(),
+             hops: [hop()],
+             system_hops: non_neg_integer(),
+             recipient_crashed?: boolean()
+           }}
           | {:error, :foreign_tracer}
   def trace_broadcast(pubsub, topic, message, opts \\ []) do
     collect_ms = Keyword.get(opts, :collect_ms, @collect_ms)
@@ -106,11 +120,15 @@ defmodule Wiretap.SeqTracer do
     deadline = System.monotonic_time(:millisecond) + collect_ms
     hops = collect(label, deadline, [])
 
+    tree = assemble(hops, stamper)
+
     {:ok,
      %{
        topic: topic,
        message_preview: inspect(message, @preview_opts),
-       hops: assemble(hops, stamper)
+       hops: tree.hops,
+       system_hops: tree.system_hops,
+       recipient_crashed?: tree.recipient_crashed?
      }}
   end
 
@@ -125,12 +143,53 @@ defmodule Wiretap.SeqTracer do
     end
   end
 
+  # Everything a recipient *causes* while handling the message carries the
+  # token too — including a crash's whole cascade: code_server loads of error
+  # formatters, logger casts, io plumbing. Real deliveries never involve
+  # these processes, so they are classified out (counted, never shown); the
+  # crash itself is diagnosed from the abnormal exit signal.
+  @system_names [
+    :application_controller,
+    :code_server,
+    :error_logger,
+    :erts_code_purger,
+    :global_name_server,
+    :init,
+    :logger,
+    :logger_proxy,
+    :logger_std_h_default,
+    :logger_sup,
+    :standard_error,
+    :user,
+    :user_drv,
+    :user_drv_reader,
+    :user_drv_writer,
+    Logger,
+    Logger.BackendSupervisor
+  ]
+
   defp assemble(raw, stamper) do
-    hops =
-      raw
-      # exit signals carry the token too (spike P1) — not deliveries
-      |> Enum.reject(&match?({:EXIT, _pid, _reason}, &1.msg))
+    # exit signals carry the token too (spike P1) — not deliveries, but an
+    # abnormal reason is the reliable "a recipient crashed" signal
+    {exits, sends} = Enum.split_with(raw, &match?({:EXIT, _pid, _reason}, &1.msg))
+    crashed? = Enum.any?(exits, fn %{msg: {:EXIT, _pid, reason}} -> abnormal?(reason) end)
+
+    # classify in causal order: infrastructure hops are counted out, and a
+    # process first reached via the spawn protocol (a crash handler's helper)
+    # is infrastructure too — everything touching it stays out of the tree
+    {system, deliveries, _tainted} =
+      sends
       |> Enum.sort_by(& &1.serial)
+      |> Enum.reduce({[], [], MapSet.new()}, fn hop, {sys, dels, tainted} ->
+        if system_hop?(hop) or MapSet.member?(tainted, hop.from) or
+             MapSet.member?(tainted, hop.to) do
+          {[hop | sys], dels, taint(tainted, hop)}
+        else
+          {sys, [hop | dels], tainted}
+        end
+      end)
+
+    hops = Enum.reverse(deliveries)
 
     origin_us =
       case hops do
@@ -157,8 +216,44 @@ defmodule Wiretap.SeqTracer do
         {entry, Map.put_new(depths, hop.to, depth)}
       end)
 
-    entries
+    %{hops: entries, system_hops: length(system), recipient_crashed?: crashed?}
   end
+
+  defp abnormal?(:normal), do: false
+  defp abnormal?(:shutdown), do: false
+  defp abnormal?({:shutdown, _reason}), do: false
+  defp abnormal?(_reason), do: true
+
+  defp taint(tainted, %{to: to, msg: msg}) when is_tuple(msg) and tuple_size(msg) > 0 and elem(msg, 0) == :spawn_request,
+    do: MapSet.put(tainted, to)
+
+  defp taint(tainted, _hop), do: tainted
+
+  defp system_hop?(%{from: from, to: to, msg: msg}) do
+    system_endpoint?(from) or system_endpoint?(to) or system_message?(msg)
+  end
+
+  defp system_endpoint?(pid) when is_pid(pid) do
+    case Process.info(pid, :registered_name) do
+      {:registered_name, name} -> name in @system_names
+      _ -> false
+    end
+  end
+
+  defp system_endpoint?(_port_or_name), do: true
+
+  defp system_message?({:code_call, _from, _req}), do: true
+  defp system_message?({:code_server, _reply}), do: true
+  defp system_message?({:io_request, _from, _ref, _req}), do: true
+  defp system_message?({:io_reply, _ref, _reply}), do: true
+  defp system_message?({:log, _event}), do: true
+  defp system_message?({:"$gen_cast", {:"$olp_load", _event}}), do: true
+  defp system_message?(:filesync), do: true
+
+  defp system_message?(msg) when is_tuple(msg) and tuple_size(msg) > 0 and elem(msg, 0) in [:spawn_request, :spawn_reply],
+    do: true
+
+  defp system_message?(_msg), do: false
 
   defp ts_us({mega, sec, micro}), do: mega * 1_000_000_000_000 + sec * 1_000_000 + micro
 
