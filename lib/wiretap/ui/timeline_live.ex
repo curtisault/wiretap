@@ -22,7 +22,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
          refresh_pending?: false,
          arm_trace?: false,
          arm_prefixes: "",
-         selected_event: nil
+         selected_event: nil,
+         q: ""
        )}
     end
 
@@ -41,7 +42,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
        |> assign(
          sessions: Wiretap.sessions(),
          selected: selected && selected.name,
-         selected_event: nil
+         selected_event: nil,
+         q: params["q"] || socket.assigns.q
        )
        |> load_events()}
     end
@@ -110,6 +112,14 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
     def handle_event("close_inspect", _params, socket) do
       {:noreply, assign(socket, selected_event: nil)}
+    end
+
+    def handle_event("filter", %{"q" => q}, socket) do
+      {:noreply, assign(socket, q: q)}
+    end
+
+    def handle_event("clear_filter", _params, socket) do
+      {:noreply, assign(socket, q: "")}
     end
 
     defp nudge_topic(name), do: "wiretap:session:" <> name
@@ -193,6 +203,19 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
 
     defp describe(event), do: "#{event.topic} #{event.pid_label}"
 
+    # Display filter only — capture is untouched (headless twin:
+    # Wiretap.events(s) |> Enum.filter/2). Matches what the row shows.
+    defp filter_events(events, ""), do: events
+
+    defp filter_events(events, q) do
+      needle = String.downcase(q)
+
+      Enum.filter(events, fn event ->
+        haystack = "#{event.kind} #{event.topic} #{describe(event)}"
+        String.contains?(String.downcase(haystack), needle)
+      end)
+    end
+
     @impl true
     def render(assigns) do
       ~H"""
@@ -244,21 +267,42 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
         />
 
         <%= if session = session_struct(assigns_to_socket(assigns)) do %>
+          <% visible = filter_events(@events, @q) %>
           <div class="wt-session-bar">
-            <span class={"wt-badge wt-#{session.status}"}>{session.status}</span>
-            <span class="wt-dim">{resolution_chip(session)}</span>
-            <span class="wt-dim">
-              {@total}/{session.max_events} events · cap {session.max_rate}/s
-            </span>
-            <span :if={session.status == :running} class="wt-dim">
-              {div(Wiretap.Session.remaining_ms(session), 1000)}s left
-            </span>
-            <span :if={@total > length(@events)} class="wt-dim">
-              showing last {length(@events)} of {@total}
-            </span>
-            <button :if={session.status == :running} class="wt-btn" phx-click="stop_session">
-              stop
-            </button>
+            <%!-- notes line: free to appear/change without reflowing the controls --%>
+            <div class="wt-session-notes wt-dim">
+              <span>{resolution_chip(session)}</span>
+              <span :if={session.tap != []}>
+                tap = everything the pid receives — delivered messages carry no topic
+              </span>
+            </div>
+            <%!-- filter left · events/cap centered · badge right, just above the table --%>
+            <div class="wt-session-controls">
+              <div class="wt-controls-left">
+                <button :if={session.status == :running} class="wt-btn" phx-click="stop_session">
+                  stop
+                </button>
+                <form id="wt-timeline-filter" phx-change="filter">
+                  <input
+                    type="text"
+                    name="q"
+                    value={@q}
+                    placeholder="filter events…"
+                    phx-debounce="150"
+                  />
+                </form>
+                <span :if={@q != ""} class="wt-dim">
+                  filter "{@q}": {length(visible)} of {length(@events)} shown
+                </span>
+              </div>
+              <div class="wt-controls-center wt-dim">
+                {@total}/{session.max_events} events · cap {session.max_rate}/s<span
+                  :if={session.status == :running}
+                  class="wt-countdown"
+                > · {div(Wiretap.Session.remaining_ms(session), 1000)}s left</span>
+              </div>
+              <span class={"wt-badge wt-#{session.status}"}>{session.status}</span>
+            </div>
           </div>
 
           <Layouts.empty_state
@@ -273,9 +317,19 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             body="Subscribe or unsubscribe something on the watched PubSub and events appear here."
           />
 
-          <div :if={@events != []} id="wiretap-timeline" class="wt-log" phx-hook="WiretapFollow">
+          <Layouts.empty_state
+            :if={@events != [] and visible == []}
+            title={"Nothing matches \"#{@q}\"."}
+            body={"#{length(@events)} captured events are hidden by the filter — display only, capture is untouched."}
+          >
+            <:action>
+              <button class="wt-btn" phx-click="clear_filter">clear filter</button>
+            </:action>
+          </Layouts.empty_state>
+
+          <div :if={visible != []} id="wiretap-timeline" class="wt-log" phx-hook="WiretapFollow">
             <div
-              :for={event <- @events}
+              :for={event <- visible}
               class="wt-row wt-clickable"
               phx-click="inspect"
               phx-value-seq={event.seq}
@@ -290,6 +344,13 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
           <button id="follow-pill" class="wt-pill hidden" type="button">
             ⤓ following paused — click to resume
           </button>
+
+          <%!-- permanent, so it never pops in and out (the counter updates
+               instantly; rows reload on the 250ms coalesce — a conditional
+               note here flickers in that gap) --%>
+          <p :if={@events != []} class="wt-dim wt-shown-count">
+            showing {length(visible)} of {@total} captured events
+          </p>
         <% end %>
       </main>
 

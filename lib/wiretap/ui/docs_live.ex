@@ -77,8 +77,8 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
                 <td>Wiretap.snapshot/1 · Wiretap.Snapshot.roll_call/2</td>
               </tr>
               <tr>
-                <td>Timeline stream</td>
-                <td>Wiretap.events/1 (+ watch/2, stop/1, sessions/0)</td>
+                <td>Timeline stream (text filter is display-only; deep-link with ?q=)</td>
+                <td>Wiretap.events/1 (+ watch/2, stop/1, sessions/0); filter twin: |&gt; Enum.filter/2</td>
               </tr>
               <tr>
                 <td>Row inspector (click any Timeline row)</td>
