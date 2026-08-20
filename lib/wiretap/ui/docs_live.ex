@@ -142,7 +142,11 @@ if Code.ensure_loaded?(Phoenix.LiveView) do
             is <b>injected by design</b>: a seq token can only be stamped by the sending
             process, so wiretap sends the (test) broadcast itself; organic broadcasts
             cannot be intercepted. One trace at a time node-wide; a foreign seq_trace
-            owner is detected and refused.
+            owner is detected and refused. The test broadcast is a <b>real message</b>:
+            a subscriber that can't ignore unknown messages (a LiveView without a
+            catch-all handle_info) will crash on it — the tree then reports
+            "a recipient crashed" and classifies the crash cascade (code loading,
+            logging, io) out of the delivery hops.
           </p>
           <p>
             The <b>Process Inspector</b> reads one subscriber through <b>:sys</b>:

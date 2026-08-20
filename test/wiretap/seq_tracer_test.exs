@@ -93,6 +93,56 @@ defmodule Wiretap.SeqTracerTest do
     assert second.depth == 2 and second.from == relay and second.to == final
     assert second.message_preview =~ "relayed"
     refute Enum.any?(tree.hops, &(&1.message_preview =~ "EXIT"))
+    # the relay died NORMALLY after forwarding — that is not a crash
+    refute tree.recipient_crashed?
+  end
+
+  test "a crashing recipient's cascade is classified out and surfaced as a warning",
+       %{pubsub: pubsub} do
+    defmodule CrashyListener do
+      @moduledoc false
+      use GenServer
+
+      def start(pubsub, topic), do: GenServer.start(__MODULE__, {pubsub, topic})
+
+      @impl true
+      def init({pubsub, topic}) do
+        :ok = Phoenix.PubSub.subscribe(pubsub, topic)
+        {:ok, nil}
+      end
+
+      # no clause matches the traced message — FunctionClauseError on receipt
+      @impl true
+      def handle_info({:expected, _}, state), do: {:noreply, state}
+    end
+
+    {:ok, crashy} = CrashyListener.start(pubsub, "station:crashy")
+
+    {result, _log} =
+      ExUnit.CaptureLog.with_log(fn ->
+        Wiretap.SeqTracer.trace_broadcast(pubsub, "station:crashy", {:wiretap_trace, "boom"})
+      end)
+
+    assert {:ok, tree} = result
+
+    # only the real delivery survives: stamper → subscriber
+    assert [%{to: ^crashy, depth: 1}] = tree.hops
+    # the crash cascade (code loading, logging, io, spawn protocol) is counted, not shown
+    assert tree.system_hops > 0
+    # the abnormal exit signal carries the token — the honest crash diagnosis
+    assert tree.recipient_crashed?
+  end
+
+  test "a healthy tree reports no system noise and no recipient error",
+       %{pubsub: pubsub} do
+    _listener = subscriber(pubsub, "station:healthy")
+
+    assert {:ok, tree} =
+             Wiretap.SeqTracer.trace_broadcast(pubsub, "station:healthy", {:wiretap_trace, "hi"})
+
+    assert length(tree.hops) == 1
+    assert tree.system_hops == 0
+    refute tree.recipient_crashed?
   end
 
   test "an unwired topic returns an empty tree — the 'is it even wired?' answer",
